@@ -89,6 +89,10 @@ export async function loginZen(interaction: ProviderAuthInteraction): Promise<Ze
 		intervalSeconds: start.interval,
 		expiresInSeconds: start.expires_in,
 	});
+	interaction.notify({
+		type: "progress",
+		message: "Leave \"All workspaces\" on the web page as-is — after approving, you will pick the workspace here in the terminal.",
+	});
 
 	let intervalMs = (start.interval ?? 5) * 1000;
 	const deadline = Date.now() + (start.expires_in ?? 600) * 1000;
@@ -100,6 +104,7 @@ export async function loginZen(interaction: ProviderAuthInteraction): Promise<Ze
 		);
 		if (poll.access_token) {
 			const credential = credentialFrom(poll);
+			interaction.notify({ type: "progress", message: "Approved. Loading workspaces..." });
 			const orgs = await fetchOrgs(credential.access, interaction.signal);
 			if (orgs.length === 1) {
 				credential.orgID = orgs[0].id;

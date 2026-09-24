@@ -118,12 +118,14 @@ describe("loginZen", () => {
 		mockFetch();
 		responses.push(() => ({ body: deviceStart }));
 		responses.push(() => ({ body: { error: "access_denied", error_description: "no" } }));
-		let notified: any;
+		const events: any[] = [];
 		await loginZen({
 			...interaction(),
-			notify: (event) => (notified = event),
+			notify: (event) => events.push(event),
 		}).catch(() => {});
-		expect(notified.verificationUri).toBe("https://opencode.ai/console/device?user_code=ABCD-EFGH");
+		const deviceCode = events.find((e) => e.type === "device_code");
+		expect(deviceCode.verificationUri).toBe("https://opencode.ai/console/device?user_code=ABCD-EFGH");
+		expect(events.some((e) => e.type === "progress")).toBe(true);
 	});
 
 	test("slow_down extends the poll interval and keeps polling", async () => {
