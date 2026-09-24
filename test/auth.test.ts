@@ -3,12 +3,15 @@ import {
 	CONSOLE,
 	CLIENT_ID,
 	UA_FALLBACK,
+	allowedModelIDs,
 	deviceToken,
 	fetchOrgs,
 	loginZen,
 	refreshZenToken,
 	userAgent,
 } from "../src/auth.ts";
+import { provider } from "../src/extension.ts";
+import { MODELS } from "../src/models.ts";
 
 type FetchCall = { url: string; body: any };
 let responses: ((call: FetchCall) => { status?: number; body: any })[] = [];
@@ -101,8 +104,9 @@ describe("loginZen", () => {
 		responses.push(() => ({ body: deviceStart }));
 		responses.push(() => ({ body: okToken }));
 		responses.push(() => ({ body: [{ id: "wrk_single", name: "Only" }] }));
+		responses.push(() => ({ body: { config: { provider: { opencode: { models: { "glm-5.3-flash": {} } } } } } }));
 		const credential = await loginZen(interaction());
-		expect(credential).toEqual({ type: "oauth", refresh: "ref", access: "acc", expires: expect.any(Number), orgID: "wrk_single" });
+		expect(credential).toEqual({ type: "oauth", refresh: "ref", access: "acc", expires: expect.any(Number), orgID: "wrk_single", allowedModels: ["glm-5.3-flash"] });
 	});
 
 	test("multiple workspaces: prompts selection", async () => {
@@ -110,6 +114,7 @@ describe("loginZen", () => {
 		responses.push(() => ({ body: deviceStart }));
 		responses.push(() => ({ body: okToken }));
 		responses.push(() => ({ body: [{ id: "wrk_a", name: "A" }, { id: "wrk_b", name: "B" }] }));
+		responses.push(() => ({ body: { config: { provider: { opencode: { models: {} } } } } }));
 		const credential = await loginZen(interaction("wrk_b"));
 		expect(credential.orgID).toBe("wrk_b");
 	});
@@ -145,6 +150,50 @@ describe("loginZen", () => {
 		responses.push(() => ({ body: deviceStart }));
 		responses.push(() => ({ body: { error: "access_denied", error_description: "nope" } }));
 		expect(loginZen(interaction())).rejects.toThrow("access_denied");
+	});
+});
+
+describe("allowedModelIDs", () => {
+	test("drops disabled models and respects the whitelist", async () => {
+		mockFetch();
+		responses.push(() => ({
+			body: {
+				config: {
+					provider: {
+						opencode: {
+							whitelist: ["glm-5.3-flash", "big-pickle"],
+							models: {
+								"glm-5.3-flash": { disabled: false },
+								"big-pickle": { disabled: false },
+								"claude-x": { disabled: false },
+								"gpt-y": { disabled: true },
+							},
+						},
+					},
+				},
+			},
+		}));
+		const ids = await allowedModelIDs("tok", "wrk_1");
+		expect(ids).toEqual(["glm-5.3-flash", "big-pickle"]);
+		expect(calls[0].url).toBe(`${CONSOLE}/api/config`);
+	});
+
+	test("no whitelist means every enabled model", async () => {
+		mockFetch();
+		responses.push(() => ({
+			body: { config: { provider: { opencode: { models: { a: {}, b: { disabled: true } } } } } },
+		}));
+		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["a"]);
+	});
+
+	test("filterModels narrows the catalog to allowed models", () => {
+		const filtered = provider.filterModels(
+			MODELS,
+			{ type: "oauth", refresh: "r", access: "a", expires: 0, allowedModels: ["glm-5.3-flash"] },
+		);
+		expect(filtered.map((m: any) => m.id)).toEqual(["glm-5.3-flash"]);
+		const all = provider.filterModels(MODELS, { type: "oauth", refresh: "r", access: "a", expires: 0 });
+		expect(all.length).toBe(MODELS.length);
 	});
 });
 

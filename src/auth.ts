@@ -65,6 +65,25 @@ export async function fetchOrgs(token: string, signal?: AbortSignal): Promise<Or
 	return (Array.isArray(data) ? data : (data.orgs ?? [])).map((o: any) => ({ id: o.id, name: o.name ?? o.id }));
 }
 
+// Model IDs the workspace allows: not disabled, and on the org whitelist (if one exists).
+export async function allowedModelIDs(token: string, orgID: string, signal?: AbortSignal): Promise<string[]> {
+	const res = await fetch(`${CONSOLE}/api/config`, {
+		headers: {
+			Authorization: `Bearer ${token}`,
+			"x-opencode-org-id": orgID,
+			"User-Agent": await userAgent(),
+		},
+		signal,
+	});
+	if (!res.ok) throw new Error(`Failed to fetch workspace models: HTTP ${res.status}`);
+	const zen = (await res.json())?.config?.provider?.opencode;
+	if (!zen) return [];
+	const whitelist: string[] | undefined = Array.isArray(zen.whitelist) ? zen.whitelist : undefined;
+	return Object.entries(zen.models ?? {})
+		.filter(([id, model]: [string, any]) => model?.disabled !== true && (!whitelist || whitelist.includes(id)))
+		.map(([id]) => id);
+}
+
 function credentialFrom(poll: any): ZenCredential {
 	return {
 		type: "oauth",
@@ -74,7 +93,7 @@ function credentialFrom(poll: any): ZenCredential {
 	};
 }
 
-export type ZenCredential = OAuthCredential & { orgID?: string };
+export type ZenCredential = OAuthCredential & { orgID?: string; allowedModels?: string[] };
 
 export async function deviceToken(body: Record<string, unknown>, signal?: AbortSignal): Promise<any> {
 	return postJson(`${CONSOLE}/auth/device/token`, { client_id: CLIENT_ID, ...body }, signal, true);
@@ -115,6 +134,13 @@ export async function loginZen(interaction: ProviderAuthInteraction): Promise<Ze
 					options: orgs.map((o) => ({ id: o.id, label: o.name })),
 				});
 			}
+			if (credential.orgID) {
+				credential.allowedModels = await allowedModelIDs(credential.access, credential.orgID, interaction.signal);
+				interaction.notify({
+					type: "progress",
+					message: `Workspace ready. Models available: ${credential.allowedModels.join(", ") || "none"}`,
+				});
+			}
 			return credential;
 		}
 		if (poll.error === "authorization_pending") continue;
@@ -130,5 +156,13 @@ export async function loginZen(interaction: ProviderAuthInteraction): Promise<Ze
 export async function refreshZenToken(credential: ZenCredential, signal: AbortSignal): Promise<ZenCredential> {
 	const data = await deviceToken({ grant_type: "refresh_token", refresh_token: credential.refresh }, signal);
 	if (!data.access_token) throw new Error(`Zen token refresh failed: ${data.error ?? "unknown"}`);
-	return { ...credentialFrom(data), orgID: credential.orgID };
+	const next: ZenCredential = { ...credentialFrom(data), orgID: credential.orgID };
+	if (next.orgID) {
+		try {
+			next.allowedModels = await allowedModelIDs(next.access, next.orgID, signal);
+		} catch {
+			next.allowedModels = credential.allowedModels;
+		}
+	}
+	return next;
 }

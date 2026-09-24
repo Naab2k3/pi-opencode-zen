@@ -1,5 +1,8 @@
 {
   "name": "opencode-zen",
   "version": "1.0.0",
-  "description": "OpenCode Zen provider for pi via console device-flow OAuth (workspace member login)"
+  "description": "OpenCode Zen provider for pi via console device-flow OAuth (workspace member login)",
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^0.87.1"
+  }
 }

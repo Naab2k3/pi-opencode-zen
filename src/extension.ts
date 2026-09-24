@@ -35,6 +35,10 @@ export const provider = createProvider<"openai-completions">({
 		},
 	},
 	models: MODELS,
+	filterModels: (models, credential) =>
+		Array.isArray(credential?.allowedModels)
+			? models.filter((m) => (credential.allowedModels as string[]).includes(m.id))
+			: models,
 	api: { "openai-completions": openAICompletionsApi() },
 });
 
