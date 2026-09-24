@@ -8,7 +8,7 @@ import {
 	loginZen,
 	refreshZenToken,
 	userAgent,
-} from "./auth.ts";
+} from "../src/auth.ts";
 
 type FetchCall = { url: string; body: any };
 let responses: ((call: FetchCall) => { status?: number; body: any })[] = [];

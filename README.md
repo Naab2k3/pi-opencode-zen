@@ -36,10 +36,11 @@ Note: the Zen edge serves the inference API only to opencode clients, so the ext
 
 ## Layout
 
-- `index.ts` — provider assembly (`createProvider`) and registration
-- `auth.ts` — device-flow login, workspace selection, token refresh, dynamic UA
-- `models.ts` — model catalog
-- `auth.test.ts` — bun test suite with mocked fetch
+- `index.ts` — entry point pi loads; re-exports `src/extension.ts`
+- `src/extension.ts` — provider assembly (`createProvider`) and registration
+- `src/auth.ts` — device-flow login, workspace selection, token refresh, dynamic UA
+- `src/models.ts` — model catalog
+- `test/auth.test.ts` — bun test suite with mocked fetch
 
 ## Development
 
