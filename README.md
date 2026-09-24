@@ -25,19 +25,27 @@ Fallback: set `OPENCODE_API_KEY` to use a Zen API key instead of OAuth.
 
 ## Models
 
-Ships with the Zen free-tier models that work outside the opencode client:
+Ships with two Zen paid models (billed to the selected workspace, prices per million tokens from the console config):
 
-| id | notes |
-|----|-------|
-| `glm-5.3-flash` | text |
-| `deepseek-v4.1-flash` | text, image |
+| id | input | output | cache read | inputs |
+|----|-------|--------|------------|--------|
+| `glm-5.3-flash` | $0.15 | $0.50 | $0.03 | text |
+| `deepseek-v4.1-flash` | $0.30 | $1.20 | $0.006 | text, image |
 
-Add models by appending to `MODELS` in `index.ts`.
+Note: the Zen edge serves the inference API only to opencode clients, so the extension sends an opencode `User-Agent` (resolved from the npm registry). Add models by appending to `MODELS` in `models.ts`.
 
-## Notes
+## Layout
 
-- The extension sends an opencode `User-Agent` (resolved from the npm registry) because the Zen edge rejects non-opencode clients on the free tier. Paid workspaces should work the same way once billing is enabled.
-- Credentials live in `~/.pi/agent/auth.json` (managed by pi), never in this repo.
+- `index.ts` — provider assembly (`createProvider`) and registration
+- `auth.ts` — device-flow login, workspace selection, token refresh, dynamic UA
+- `models.ts` — model catalog
+- `auth.test.ts` — bun test suite with mocked fetch
+
+## Development
+
+```sh
+bun test
+```
 
 ## License
 
