@@ -1,5 +1,5 @@
 {
-  "name": "pi-opencode-zen",
+  "name": "opencode-zen-oauth",
   "version": "1.0.0",
   "description": "OpenCode Zen provider for pi via console device-flow OAuth (workspace member login)",
   "keywords": ["pi-package"],

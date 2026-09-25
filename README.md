@@ -10,6 +10,12 @@ Works for workspace **members**: `/login opencode-zen` opens the OpenCode device
 pi install git:github.com/Naab2k3/pi-opencode-zen@v1.0.0
 ```
 
+Published on npm as `opencode-zen-oauth` (the `pi-opencode-zen` name is taken by a deprecated anonymous-tier extension):
+
+```sh
+pi install npm:opencode-zen-oauth
+```
+
 Or clone into your pi extensions directory manually and restart pi (or `/reload`).
 
 ## Usage
