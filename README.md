@@ -29,14 +29,9 @@ Fallback: set `OPENCODE_API_KEY` to use a Zen API key instead of OAuth.
 
 ## Models
 
-Ships with two Zen paid models (billed to the selected workspace, prices per million tokens from the console config):
+The catalog refreshes automatically from the workspace (`fetchModels`): every model the workspace allows — not disabled and on the org whitelist — appears in `/model`, with context limits and prices mapped from the console config. The static `MODELS` in `src/models.ts` is only the offline baseline.
 
-| id | input | output | cache read | inputs |
-|----|-------|--------|------------|--------|
-| `glm-5.3-flash` | $0.15 | $0.50 | $0.03 | text |
-| `deepseek-v4.1-flash` | $0.30 | $1.20 | $0.006 | text, image |
-
-Note: the Zen edge serves the inference API only to opencode clients, so the extension sends an opencode `User-Agent` (resolved from the npm registry). Add models by appending to `MODELS` in `models.ts`.
+Note: the Zen edge serves the inference API only to opencode clients, so the extension sends an opencode `User-Agent` (resolved from the npm registry).
 
 ## Layout
 

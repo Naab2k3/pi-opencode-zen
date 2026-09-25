@@ -11,7 +11,7 @@ import {
 	userAgent,
 } from "../src/auth.ts";
 import { provider } from "../src/extension.ts";
-import { MODELS } from "../src/models.ts";
+import { MODELS, modelFromZen } from "../src/models.ts";
 
 type FetchCall = { url: string; body: any };
 let responses: ((call: FetchCall) => { status?: number; body: any })[] = [];
@@ -184,6 +184,58 @@ describe("allowedModelIDs", () => {
 			body: { config: { provider: { opencode: { models: { a: {}, b: { disabled: true } } } } } },
 		}));
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["a"]);
+	});
+
+	test("skips models with a custom provider override", async () => {
+		mockFetch();
+		responses.push(() => ({
+			body: {
+				config: {
+					provider: {
+						opencode: {
+							models: {
+								ok: { disabled: false },
+								anthropicish: { disabled: false, provider: { npm: "@ai-sdk/anthropic" } },
+							},
+						},
+					},
+				},
+			},
+		}));
+		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["ok"]);
+	});
+
+	test("modelFromZen maps console metadata to a pi model", () => {
+		const model = modelFromZen("glm-5.3-flash", {
+			name: "GLM-5.3-Flash",
+			reasoning: true,
+			modalities: { input: ["text", "image", "pdf"] },
+			cost: { input: 0.15, output: 0.5, cache_read: 0.03 },
+			limit: { context: 1000000, output: 131072 },
+		});
+		expect(model).toMatchObject({
+			id: "glm-5.3-flash",
+			name: "GLM-5.3-Flash",
+			api: "openai-completions",
+			provider: "opencode-zen",
+			reasoning: true,
+			input: ["text", "image"],
+			cost: { input: 0.15, output: 0.5, cacheRead: 0.03, cacheWrite: 0.1875 },
+			contextWindow: 1000000,
+			maxTokens: 131072,
+		});
+	});
+
+	test("modelFromZen falls back on missing metadata", () => {
+		const model = modelFromZen("mystery", {});
+		expect(model).toMatchObject({
+			name: "mystery",
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128000,
+			maxTokens: 32000,
+		});
 	});
 
 	test("filterModels narrows the catalog to allowed models", () => {

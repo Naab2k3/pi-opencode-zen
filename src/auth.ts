@@ -67,6 +67,14 @@ export async function fetchOrgs(token: string, signal?: AbortSignal): Promise<Or
 
 // Model IDs the workspace allows: not disabled, and on the org whitelist (if one exists).
 export async function allowedModelIDs(token: string, orgID: string, signal?: AbortSignal): Promise<string[]> {
+	return Object.keys(await fetchZenModels(token, orgID, signal));
+}
+
+export async function fetchZenModels(
+	token: string,
+	orgID: string,
+	signal?: AbortSignal,
+): Promise<Record<string, ZenModelMeta>> {
 	const res = await fetch(`${CONSOLE}/api/config`, {
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -77,11 +85,17 @@ export async function allowedModelIDs(token: string, orgID: string, signal?: Abo
 	});
 	if (!res.ok) throw new Error(`Failed to fetch workspace models: HTTP ${res.status}`);
 	const zen = (await res.json())?.config?.provider?.opencode;
-	if (!zen) return [];
+	if (!zen) return {};
 	const whitelist: string[] | undefined = Array.isArray(zen.whitelist) ? zen.whitelist : undefined;
-	return Object.entries(zen.models ?? {})
-		.filter(([id, model]: [string, any]) => model?.disabled !== true && (!whitelist || whitelist.includes(id)))
-		.map(([id]) => id);
+	return Object.fromEntries(
+		Object.entries<ZenModelMeta>(zen.models ?? {}).filter(
+			([id, model]) =>
+				model?.disabled !== true &&
+				(!whitelist || whitelist.includes(id)) &&
+				// per-model provider overrides use a different wire protocol
+				model?.provider === undefined,
+		),
+	);
 }
 
 function credentialFrom(poll: any): ZenCredential {
