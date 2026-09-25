@@ -6,13 +6,11 @@ Works for workspace **members**: `/login opencode-zen` opens the OpenCode device
 
 ## Install
 
-Copy into your pi extensions directory:
-
 ```sh
-git clone https://github.com/Naab2k3/pi-opencode-zen ~/.pi/agent/extensions/opencode-zen
+pi install git:github.com/Naab2k3/pi-opencode-zen@v1.0.0
 ```
 
-Or copy `index.ts` and `package.json` into `~/.pi/agent/extensions/opencode-zen/` manually, then restart pi (or `/reload`).
+Or clone into your pi extensions directory manually and restart pi (or `/reload`).
 
 ## Usage
 
