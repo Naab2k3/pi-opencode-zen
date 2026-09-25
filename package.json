@@ -4,6 +4,7 @@
   "description": "OpenCode Zen provider for pi via console device-flow OAuth (workspace member login)",
   "keywords": ["pi-package"],
   "license": "MIT",
+  "files": ["index.ts", "src/", "README.md", "LICENSE"],
   "pi": {
     "extensions": ["./src/extension.ts"]
   },
