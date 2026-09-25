@@ -1,8 +1,19 @@
 {
-  "name": "opencode-zen",
+  "name": "pi-opencode-zen",
   "version": "1.0.0",
   "description": "OpenCode Zen provider for pi via console device-flow OAuth (workspace member login)",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./src/extension.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
   "devDependencies": {
-    "@earendil-works/pi-ai": "^0.87.1"
+    "@earendil-works/pi-ai": "^0.87.1",
+    "@earendil-works/pi-coding-agent": "^0.87.1",
+    "@types/bun": "latest"
   }
 }
