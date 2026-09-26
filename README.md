@@ -1,64 +1,66 @@
-# pi-opencode-zen
+# opencode-zen-oauth
 
-[Pi](https://pi.dev) provider extension for [OpenCode Zen](https://opencode.ai/docs/zen) — device-flow OAuth login with your OpenCode workspace account, no API key management needed.
+**English** | [Tiếng Việt](./README.vi.md)
 
-Works for workspace **members**: `/login opencode-zen` opens the OpenCode device-code page, you approve in the browser, and pi stores/refreshes the OAuth token itself. If your account belongs to multiple workspaces, pi asks you to pick one; requests carry the matching `x-opencode-org-id` header.
+OpenCode Zen inside pi — no API keys. Workspace members can finally use Zen too.
 
 ## Install
-
-```sh
-pi install git:github.com/Naab2k3/pi-opencode-zen@v1.0.0
-```
-
-Published on npm as `opencode-zen-oauth` (the `pi-opencode-zen` name is taken by a deprecated anonymous-tier extension):
 
 ```sh
 pi install npm:opencode-zen-oauth
 ```
 
-Or clone into your pi extensions directory manually and restart pi (or `/reload`).
+## Why
 
-## Requirements
+OpenCode's v2 console hides API keys from workspace members, and raw OAuth
+tokens get rejected outside the official client. Three walls, one extension:
 
-No opencode install needed. Everything runs over HTTPS: the device-code login opens in your browser for a one-time approval, and pi stores and refreshes the token itself. You only need an OpenCode account in the workspace you want to use.
+1. **No keys to manage.** `/login opencode-zen` opens a device-code page, you
+   approve once in the browser, pi stores and refreshes the token itself.
+2. **Workspace-safe.** Pick your workspace in the pi TUI after approval
+   (leave the web page on "All workspaces"). Every request carries the
+   matching org header, and `/model` only lists what that workspace allows.
+3. **Catalog that keeps up.** The model list refreshes from the workspace
+   itself — disabled models and admin whitelists respected, context limits
+   and per-million-token prices mapped automatically.
 
-## Security
-
-- The extension never prints or logs your token or workspace ID. If you need to
-  share debug output, it is safe as-is.
-- Do not paste your token or workspace ID into chat yourself — pi session files
-  persist what you type. If one leaks, revoke it in the OpenCode console
-  (`API keys` / workspace settings) and run `/login opencode-zen` again.
-- Login and token refresh run entirely over HTTPS against `opencode.ai`.
-
-## Usage
+## Login flow
 
 ```
-/login opencode-zen        # device-flow OAuth via opencode.ai console
-/model opencode-zen/glm-5.3-flash
+/login opencode-zen        # device code + link appears in the TUI
 ```
+
+Approve in the browser, come back to the terminal, pick a workspace, done.
+Models appear under `opencode-zen/` in `/model`. No opencode install needed —
+everything runs over HTTPS against `opencode.ai`.
 
 Fallback: set `OPENCODE_API_KEY` to use a Zen API key instead of OAuth.
 
 ## Models
 
-The catalog refreshes automatically from the workspace (`fetchModels`): every model the workspace allows — not disabled and on the org whitelist — appears in `/model`, with context limits and prices mapped from the console config. The static `MODELS` in `src/models.ts` is only the offline baseline.
+Live example from a real workspace (your list depends on your workspace):
 
-Note: the Zen edge serves the inference API only to opencode clients, so the extension sends an opencode `User-Agent` (resolved from the npm registry).
+| id | input | output | cache read | inputs |
+|----|-------|--------|------------|--------|
+| `glm-5.3-flash` | $0.15 | $0.50 | $0.03 | text, image |
+| `deepseek-v4.1-flash` | $0.30 | $1.20 | $0.006 | text, image |
+
+Prices per million tokens, billed to the selected workspace.
+
+## Security
+
+- The extension never prints or logs your token or workspace ID.
+- Do not paste your token or workspace ID into chat yourself — pi session
+  files persist what you type. If one leaks, revoke it in the OpenCode
+  console and run `/login opencode-zen` again.
 
 ## Layout
 
 - `index.ts` — entry point pi loads; re-exports `src/extension.ts`
-- `src/extension.ts` — provider assembly (`createProvider`) and registration
-- `src/auth.ts` — device-flow login, workspace selection, token refresh, dynamic UA
-- `src/models.ts` — model catalog
-- `test/auth.test.ts` — bun test suite with mocked fetch
-
-## Development
-
-```sh
-bun test
-```
+- `src/extension.ts` — provider assembly and registration
+- `src/auth.ts` — device-flow login, workspace selection, token refresh
+- `src/models.ts` — console-to-pi model mapping
+- `test/auth.test.ts` — bun test suite with mocked fetch (`bun test`)
 
 ## License
 
