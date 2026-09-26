@@ -18,6 +18,10 @@ pi install npm:opencode-zen-oauth
 
 Or clone into your pi extensions directory manually and restart pi (or `/reload`).
 
+## Requirements
+
+No opencode install needed. Everything runs over HTTPS: the device-code login opens in your browser for a one-time approval, and pi stores and refreshes the token itself. You only need an OpenCode account in the workspace you want to use.
+
 ## Usage
 
 ```
