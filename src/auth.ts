@@ -64,7 +64,8 @@ export async function fetchZenModels(
 	const res = await fetch(`${CONSOLE}/api/config`, {
 		headers: {
 			Authorization: `Bearer ${token}`,
-			"x-opencode-org-id": orgID,
+			// console API header; the inference endpoint uses x-opencode-org-id instead
+			"x-org-id": orgID,
 			"User-Agent": UA,
 		},
 		signal,

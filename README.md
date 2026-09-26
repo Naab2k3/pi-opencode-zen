@@ -22,6 +22,15 @@ Or clone into your pi extensions directory manually and restart pi (or `/reload`
 
 No opencode install needed. Everything runs over HTTPS: the device-code login opens in your browser for a one-time approval, and pi stores and refreshes the token itself. You only need an OpenCode account in the workspace you want to use.
 
+## Security
+
+- The extension never prints or logs your token or workspace ID. If you need to
+  share debug output, it is safe as-is.
+- Do not paste your token or workspace ID into chat yourself — pi session files
+  persist what you type. If one leaks, revoke it in the OpenCode console
+  (`API keys` / workspace settings) and run `/login opencode-zen` again.
+- Login and token refresh run entirely over HTTPS against `opencode.ai`.
+
 ## Usage
 
 ```

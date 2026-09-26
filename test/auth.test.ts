@@ -5,6 +5,7 @@ import {
 	allowedModelIDs,
 	deviceToken,
 	fetchOrgs,
+	fetchZenModels,
 	loginZen,
 	refreshZenToken,
 	UA,
@@ -12,7 +13,7 @@ import {
 import { provider } from "../src/extension.ts";
 import { MODELS, modelFromZen } from "../src/models.ts";
 
-type FetchCall = { url: string; body: any };
+type FetchCall = { url: string; body: any; headers: any };
 let responses: ((call: FetchCall) => { status?: number; body: any })[] = [];
 let calls: FetchCall[] = [];
 const realFetch = globalThis.fetch;
@@ -20,7 +21,7 @@ const realFetch = globalThis.fetch;
 function mockFetch() {
 	calls = [];
 	globalThis.fetch = (async (url: any, init?: any) => {
-		const call: FetchCall = { url: String(url), body: init?.body ? JSON.parse(init.body) : undefined };
+		const call: FetchCall = { url: String(url), body: init?.body ? JSON.parse(init.body) : undefined, headers: init?.headers };
 		calls.push(call);
 		const next = responses.shift();
 		if (!next) throw new Error("unexpected fetch: " + call.url);
@@ -147,6 +148,16 @@ describe("loginZen", () => {
 		responses.push(() => ({ body: { error: "access_denied", error_description: "nope" } }));
 		expect(loginZen(interaction())).rejects.toThrow("access_denied");
 	});
+
+	test("zero workspaces: returns credential without org", async () => {
+		mockFetch();
+		responses.push(() => ({ body: deviceStart }));
+		responses.push(() => ({ body: okToken }));
+		responses.push(() => ({ body: [] }));
+		const credential = await loginZen(interaction());
+		expect(credential.orgID).toBeUndefined();
+		expect(credential.access).toBe("acc");
+	});
 });
 
 describe("allowedModelIDs", () => {
@@ -172,6 +183,7 @@ describe("allowedModelIDs", () => {
 		const ids = await allowedModelIDs("tok", "wrk_1");
 		expect(ids).toEqual(["glm-5.3-flash", "big-pickle"]);
 		expect(calls[0].url).toBe(`${CONSOLE}/api/config`);
+		expect(calls[0].headers["x-org-id"]).toBe("wrk_1");
 	});
 
 	test("no whitelist means every enabled model", async () => {
@@ -180,6 +192,20 @@ describe("allowedModelIDs", () => {
 			body: { config: { provider: { opencode: { models: { a: {}, b: { disabled: true } } } } } },
 		}));
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["a"]);
+	});
+
+	test("empty config returns no models", async () => {
+		mockFetch();
+		responses.push(() => ({ body: { config: { provider: {} } } }));
+		expect(await fetchZenModels("tok", "wrk_1")).toEqual({});
+		responses.push(() => ({ body: {} }));
+		expect(await fetchZenModels("tok", "wrk_1")).toEqual({});
+	});
+
+	test("token rejection hints at re-login", async () => {
+		mockFetch();
+		responses.push(() => ({ status: 400, body: { _tag: "OrgRequired" } }));
+		expect(fetchZenModels("tok", "wrk_1")).rejects.toThrow("/login opencode-zen");
 	});
 
 	test("skips models with a custom provider override", async () => {
@@ -255,5 +281,17 @@ describe("refreshZenToken", () => {
 		);
 		expect(credential).toEqual({ type: "oauth", refresh: "ref", access: "acc", expires: expect.any(Number), orgID: "wrk_keep" });
 		expect(calls[0].body.refresh_token).toBe("old-ref");
+	});
+
+	test("keeps the previous model list when refresh-time fetch fails", async () => {
+		mockFetch();
+		responses.push(() => ({ body: okToken }));
+		responses.push(() => ({ status: 500, body: {} }));
+		const credential = await refreshZenToken(
+			{ type: "oauth", refresh: "old-ref", access: "old", expires: 0, orgID: "wrk_keep", allowedModels: ["a"] },
+			new AbortController().signal,
+		);
+		expect(credential.allowedModels).toEqual(["a"]);
+		expect(credential.access).toBe("acc");
 	});
 });
