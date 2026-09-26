@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.2
+## 1.2.1
 
 ### Fixed
 - Console API calls use the `x-org-id` header. The previous `x-opencode-org-id`
