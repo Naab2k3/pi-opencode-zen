@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.2.1
+## 1.2.2
+
+### Changed
+- Rewrote README (hook-first structure) and added Vietnamese translation
+  (`README.vi.md`) with a language switcher. No code changes.
 
 ### Fixed
 - Console API calls use the `x-org-id` header. The previous `x-opencode-org-id`
