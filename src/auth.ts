@@ -4,22 +4,8 @@ import type { OAuthCredential, ProviderAuthInteraction } from "@earendil-works/p
 
 export const CONSOLE = "https://opencode.ai/console";
 export const CLIENT_ID = "opencode-cli";
-export const UA_FALLBACK = "opencode/2.0.15/cli";
-
-let uaCache: string | undefined;
-export async function userAgent(): Promise<string> {
-	if (uaCache) return uaCache;
-	try {
-		const res = await fetch("https://registry.npmjs.org/-/package/opencode-ai/dist-tags", {
-			signal: AbortSignal.timeout(3000),
-		});
-		const tags = await res.json();
-		uaCache = tags.latest ? `opencode/${tags.latest}/cli` : UA_FALLBACK;
-	} catch {
-		uaCache = UA_FALLBACK;
-	}
-	return uaCache;
-}
+// Versionless UA: the console accepts it, so no pinned version to drift.
+export const UA = "opencode/cli";
 
 export const SLOW_DOWN_PENALTY_MS = 5000;
 
@@ -41,7 +27,7 @@ export async function postJson(
 ): Promise<any> {
 	const res = await fetch(url, {
 		method: "POST",
-		headers: { "Content-Type": "application/json", "User-Agent": await userAgent() },
+		headers: { "Content-Type": "application/json", "User-Agent": UA },
 		body: JSON.stringify(body),
 		signal,
 	});
@@ -57,7 +43,7 @@ export interface Org {
 
 export async function fetchOrgs(token: string, signal?: AbortSignal): Promise<Org[]> {
 	const res = await fetch(`${CONSOLE}/api/orgs`, {
-		headers: { Authorization: `Bearer ${token}`, "User-Agent": await userAgent() },
+		headers: { Authorization: `Bearer ${token}`, "User-Agent": UA },
 		signal,
 	});
 	if (!res.ok) throw new Error(`Failed to fetch workspaces: HTTP ${res.status}`);
@@ -79,11 +65,14 @@ export async function fetchZenModels(
 		headers: {
 			Authorization: `Bearer ${token}`,
 			"x-opencode-org-id": orgID,
-			"User-Agent": await userAgent(),
+			"User-Agent": UA,
 		},
 		signal,
 	});
-	if (!res.ok) throw new Error(`Failed to fetch workspace models: HTTP ${res.status}`);
+	if (!res.ok) {
+		const hint = res.status === 400 || res.status === 401 ? " (token rejected — run /login opencode-zen)" : "";
+		throw new Error(`Failed to fetch workspace models: HTTP ${res.status}${hint}`);
+	}
 	const zen = (await res.json())?.config?.provider?.opencode;
 	if (!zen) return {};
 	const whitelist: string[] | undefined = Array.isArray(zen.whitelist) ? zen.whitelist : undefined;

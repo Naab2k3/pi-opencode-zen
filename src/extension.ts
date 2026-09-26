@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createProvider, type ApiKeyCredential, type ProviderAuthInteraction } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import { INFERENCE_URL, MODELS, modelFromZen } from "./models.ts";
-import { fetchZenModels, loginZen, refreshZenToken, userAgent, type ZenCredential } from "./auth.ts";
+import { UA, fetchZenModels, loginZen, refreshZenToken, type ZenCredential } from "./auth.ts";
 
 export const provider = createProvider<"openai-completions">({
 	id: "opencode-zen",
@@ -16,7 +16,7 @@ export const provider = createProvider<"openai-completions">({
 			toAuth: async (credential) => ({
 				apiKey: credential.access,
 				headers: {
-					"User-Agent": await userAgent(),
+					"User-Agent": UA,
 					...(credential.orgID ? { "x-opencode-org-id": credential.orgID } : {}),
 				},
 			}),
@@ -30,7 +30,7 @@ export const provider = createProvider<"openai-completions">({
 			resolve: async ({ ctx, credential }) => {
 				const key = credential?.key ?? (await ctx.env("OPENCODE_API_KEY")) ?? undefined;
 				if (!key) return undefined;
-				return { auth: { apiKey: key, headers: { "User-Agent": await userAgent() } } };
+				return { auth: { apiKey: key, headers: { "User-Agent": UA } } };
 			},
 		},
 	},

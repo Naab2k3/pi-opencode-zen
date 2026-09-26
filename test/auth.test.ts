@@ -2,13 +2,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
 	CONSOLE,
 	CLIENT_ID,
-	UA_FALLBACK,
 	allowedModelIDs,
 	deviceToken,
 	fetchOrgs,
 	loginZen,
 	refreshZenToken,
-	userAgent,
+	UA,
 } from "../src/auth.ts";
 import { provider } from "../src/extension.ts";
 import { MODELS, modelFromZen } from "../src/models.ts";
@@ -50,11 +49,8 @@ const interaction = (pickWorkspace?: string) => ({
 const okToken = { access_token: "acc", refresh_token: "ref", expires_in: 3600 };
 
 describe("userAgent", () => {
-	test("falls back when registry is unreachable", async () => {
-		globalThis.fetch = (async () => {
-			throw new Error("offline");
-		}) as typeof fetch;
-		expect(await userAgent()).toBe(UA_FALLBACK);
+	test("is a versionless constant", () => {
+		expect(UA).toBe("opencode/cli");
 	});
 });
 
