@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.2.2
+## 1.2.3
+
+### Changed
+- Verified against pi 0.99.1 and opencode v2.0.20; devDependencies bumped.
+  No code changes.
 
 ### Changed
 - Rewrote README (hook-first structure) and added Vietnamese translation
