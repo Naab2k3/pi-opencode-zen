@@ -194,6 +194,25 @@ describe("allowedModelIDs", () => {
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["a"]);
 	});
 
+	test("drops free-tier models Zen rejects outside opencode", async () => {
+		mockFetch();
+		responses.push(() => ({
+			body: {
+				config: {
+					provider: {
+						opencode: {
+							models: {
+								paid: { cost: { input: 0.3, output: 1.2 } },
+								free: { cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 } },
+							},
+						},
+					},
+				},
+			},
+		}));
+		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["paid"]);
+	});
+
 	test("empty config returns no models", async () => {
 		mockFetch();
 		responses.push(() => ({ body: { config: { provider: {} } } }));

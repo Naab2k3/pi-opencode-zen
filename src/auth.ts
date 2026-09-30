@@ -83,7 +83,9 @@ export async function fetchZenModels(
 				model?.disabled !== true &&
 				(!whitelist || whitelist.includes(id)) &&
 				// per-model provider overrides use a different wire protocol
-				model?.provider === undefined,
+				model?.provider === undefined &&
+				// zero-cost models are free-tier: Zen rejects them outside opencode (FreeTierError)
+				!(model?.cost && (model.cost.input ?? 0) <= 0 && (model.cost.output ?? 0) <= 0),
 		),
 	);
 }

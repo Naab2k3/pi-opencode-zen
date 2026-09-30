@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.4
+
+### Fixed
+- Exclude zero-cost (free-tier) models from the catalog. Zen answers them
+  with `FreeTierError` outside the opencode client even when the workspace
+  whitelist includes them — listing them only produced dead ends.
+
 ## 1.2.3
 
 ### Changed
