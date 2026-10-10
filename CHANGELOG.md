@@ -19,8 +19,11 @@
   Pi's agent already advertises `read` + `bash`, so agent turns only need the
   header pair; tool-less completions (`streamSimple`, title generation, …)
   additionally get both stubs injected via the adapter's `onPayload` hook,
-  with `tool_choice: "none"` so the stubs are never called. Paid models are
-  never modified. See `src/free-tier.ts`.
+  with `tool_choice: "none"` so the stubs are never called. Stubs follow the
+  route's own tool format — `openai-completions` and `anthropic-messages`
+  (flat `{name, description, input_schema}`) are both covered, so a free model
+  that later switches protocol keeps working. Paid models are never modified.
+  See `src/free-tier.ts`.
 - Zero-cost models are no longer filtered out of the catalog during
   `/api/config` — they are gated per-request instead of hidden.
 
