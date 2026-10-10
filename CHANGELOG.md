@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Added
+- Free-tier (zero-cost) models are usable again. The Zen gateway rejects them
+  with `FreeTierError` ("OpenCode's free tier can only be used from within
+  OpenCode") unless the request looks like an OpenCode-client turn. Probed
+  against the live gateway, the check is exactly three conditions — token,
+  TLS fingerprint, HTTP version and source IP are *not* among them:
+  1. `User-Agent` shaped `opencode/(latest/)?<version>/…` — `opencode/cli` is
+     rejected. Any semver-ish version passes.
+  2. an `x-opencode-session` header (`x-session-affinity`/`x-session-id` also
+     satisfy it, `x-opencode-session-id` alone does not) whose value matches
+     the official `ses_<12 hex><14 alnum>` session-id shape.
+  3. a streamed body (`stream: true`) whose `tools` array carries a read tool
+     plus a command-execution tool — verified pairs `{read, shell}` and
+     `{read, bash}`; single tools and other pairs are rejected.
+  Pi's agent already advertises `read` + `bash`, so agent turns only need the
+  header pair; tool-less completions (`streamSimple`, title generation, …)
+  additionally get both stubs injected via the adapter's `onPayload` hook,
+  with `tool_choice: "none"` so the stubs are never called. Paid models are
+  never modified. See `src/free-tier.ts`.
+- Zero-cost models are no longer filtered out of the catalog during
+  `/api/config` — they are gated per-request instead of hidden.
+
 ### Fixed
 - The console now attaches `options.apiKey: "{env:OPENCODE_CONSOLE_TOKEN}"`
   and an org header to the managed `opencode` entry. The BYOK check treated

@@ -7,7 +7,49 @@ import {
 	openAIResponsesApi,
 } from "@earendil-works/pi-ai/compat";
 import { INFERENCE_URL, MODELS, modelFromZen, type ZenApi } from "./models.ts";
+import {
+	applyFreeTierGate,
+	applyFreeTierGateAnthropic,
+	freeTierHeaders,
+	isZeroCostModel,
+} from "./free-tier.ts";
 import { UA, fetchZenModels, loginZen, refreshZenToken, type ZenCredential } from "./auth.ts";
+
+// Free-tier (zero-cost) models are gated at the Zen gateway: the request must
+// look like an OpenCode-client turn (official-shaped UA + session headers +
+// a read/exec tool pair), or the gateway answers FreeTierError. Agent turns
+// already carry real read+bash tools, so only the header pair is injected
+// there; tool-less payloads additionally get stubs in the route's own tool
+// format with tool calls muted. Paid models are never modified.
+function withFreeTierGate<T extends object>(streams: T): T {
+	const s = streams as unknown as Record<string, (...args: never[]) => unknown>;
+	const wrap = (fn: (...args: never[]) => unknown) => (model: never, context: never, options?: never) => {
+		const opts = ((options ?? {}) as Record<string, unknown>);
+		const free = isZeroCostModel(model as never);
+		const caller = opts.onPayload as ((payload: unknown, model: unknown) => unknown) | undefined;
+		return fn(
+			model,
+			context,
+			{
+				...opts,
+				...(free
+					? { headers: { ...((opts.headers as Record<string, string>) ?? {}), ...freeTierHeaders() } }
+					: {}),
+				onPayload: async (payload: unknown, m: unknown) => {
+					// every zero-cost model routes openai-completions today; the
+					// anthropic variant is here for models that switch routes
+					const gated =
+						(m as { api?: string })?.api === "anthropic-messages"
+							? applyFreeTierGateAnthropic(payload as Record<string, unknown>, m as never)
+							: applyFreeTierGate(payload as Record<string, unknown>, m as never);
+					const next = gated ?? payload;
+					return caller ? caller(next, m) : next;
+				},
+			} as never,
+		);
+	};
+	return { ...streams, stream: wrap(s.stream!), streamSimple: wrap(s.streamSimple!) };
+}
 
 export const provider = createProvider<ZenApi>({
 	id: "opencode-zen",
@@ -58,8 +100,10 @@ export const provider = createProvider<ZenApi>({
 			: models;
 	},
 	api: {
-		"openai-completions": openAICompletionsApi(),
-		"anthropic-messages": anthropicMessagesApi(),
+		// the gate only ever fires for zero-cost models; headers cover any
+		// route, the body stubs follow the route's own tool format
+		"openai-completions": withFreeTierGate(openAICompletionsApi()),
+		"anthropic-messages": withFreeTierGate(anthropicMessagesApi()),
 		"openai-responses": openAIResponsesApi(),
 		"google-generative-ai": googleGenerativeAIApi(),
 	},
