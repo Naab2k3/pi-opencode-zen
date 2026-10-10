@@ -81,6 +81,22 @@ const BASH_STUB: FreeTierTool = {
 	},
 };
 
+// Anthropic-wire variants for the anthropic-messages route: flat
+// {name, description, input_schema} entries. Named after pi's own tools so a
+// stub call still maps onto something pi can execute.
+const ANTHROPIC_STUBS: Record<string, { name: string; description: string; input_schema: unknown }> = {
+	read: {
+		name: "read",
+		description: "Read a file from disk.",
+		input_schema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+	},
+	bash: {
+		name: "bash",
+		description: "Run a shell command.",
+		input_schema: { type: "object", properties: { command: { type: "string" } }, required: ["command"] },
+	},
+};
+
 /** Tool names the gateway accepts as the read/execute pair. */
 const READ_NAMES = ["read"];
 const EXEC_NAMES = ["shell", "bash"];
@@ -102,6 +118,31 @@ function toolName(tool: unknown): string | undefined {
 function hasPair(tools: unknown[]): boolean {
 	const names = new Set(tools.map(toolName).filter((n): n is string => Boolean(n)));
 	return READ_NAMES.some((r) => names.has(r)) && EXEC_NAMES.some((e) => names.has(e));
+}
+
+/**
+ * Anthropic-messages variant of the gate: the same zero-cost condition and
+ * read/exec pair, in the Anthropic tool shape. Pi's agent already advertises
+ * `read` + `bash` on this route too, so only tool-less payloads get stubs;
+ * unlike the OpenAI route there is no `tool_choice: "none"` to set (Anthropic
+ * has no such value), and the stubs are named after pi's real tools so a call
+ * still resolves.
+ */
+export function applyFreeTierGateAnthropic(
+	payload: Record<string, unknown>,
+	model: { cost?: { input?: number; output?: number } },
+): Record<string, unknown> | undefined {
+	if (!payload || typeof payload !== "object") return undefined;
+	if (!isZeroCostModel(model)) return undefined;
+
+	const existing: unknown[] = Array.isArray(payload.tools) ? (payload.tools as unknown[]) : [];
+	if (hasPair(existing)) return undefined;
+
+	const names = new Set(existing.map(toolName));
+	const missing: unknown[] = [];
+	if (!READ_NAMES.some((r) => names.has(r))) missing.push(ANTHROPIC_STUBS.read);
+	if (!EXEC_NAMES.some((e) => names.has(e))) missing.push(ANTHROPIC_STUBS.bash);
+	return { ...payload, tools: [...existing, ...missing] };
 }
 
 /**

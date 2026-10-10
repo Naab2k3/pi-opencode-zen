@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { applyFreeTierGate, freeTierHeaders, freeTierSessionId, isZeroCostModel } from "../src/free-tier.ts";
+import {
+	applyFreeTierGate,
+	applyFreeTierGateAnthropic,
+	freeTierHeaders,
+	freeTierSessionId,
+	isZeroCostModel,
+} from "../src/free-tier.ts";
 import { modelFromZen } from "../src/models.ts";
 
 // The Zen free-tier gateway (FreeTierError) accepts a request only when it is
@@ -35,6 +41,37 @@ describe("freeTierHeaders", () => {
 	test("a fresh session id is generated when none is given", () => {
 		const h = freeTierHeaders();
 		expect(h["x-opencode-session"]).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
+	});
+});
+
+describe("applyFreeTierGateAnthropic", () => {
+	test("tool-less payloads get anthropic-shaped read + bash stubs", () => {
+		const next = applyFreeTierGateAnthropic(
+			{ model: "jev-1.13-free", messages: [], max_tokens: 64 },
+			{ cost: ZERO.cost },
+		);
+		expect(next).toBeDefined();
+		expect((next!.tools as any[]).map((t) => t.name)).toEqual(["read", "bash"]);
+		// anthropic wire shape: name/description/input_schema, no function wrapper
+		expect((next!.tools as any[])[0]).toHaveProperty("input_schema");
+		expect((next!.tools as any[])[0]).not.toHaveProperty("function");
+		// anthropic has no tool_choice "none" — nothing to forbid
+		expect(next!.tool_choice).toBeUndefined();
+	});
+
+	test("agent payloads that already carry read + bash are untouched", () => {
+		const tools = [{ name: "read", input_schema: {} }, { name: "bash", input_schema: {} }];
+		expect(applyFreeTierGateAnthropic({ tools }, { cost: ZERO.cost })).toBeUndefined();
+	});
+
+	test("a payload missing only the exec tool gets just that stub", () => {
+		const tools = [{ name: "read", input_schema: {} }];
+		const next = applyFreeTierGateAnthropic({ tools }, { cost: ZERO.cost });
+		expect((next!.tools as any[]).map((t) => t.name)).toEqual(["read", "bash"]);
+	});
+
+	test("paid models are never modified", () => {
+		expect(applyFreeTierGateAnthropic({ messages: [] }, { cost: PAID.cost })).toBeUndefined();
 	});
 });
 
