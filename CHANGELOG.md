@@ -1,5 +1,66 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Free-tier (zero-cost) models are usable again. The Zen gateway rejects them
+  with `FreeTierError` ("OpenCode's free tier can only be used from within
+  OpenCode") unless the request looks like an OpenCode-client turn. Probed
+  against the live gateway, the check is exactly three conditions — token,
+  TLS fingerprint, HTTP version and source IP are *not* among them:
+  1. `User-Agent` shaped `opencode/(latest/)?<version>/…` — `opencode/cli` is
+     rejected. Any semver-ish version passes.
+  2. an `x-opencode-session` header (`x-session-affinity`/`x-session-id` also
+     satisfy it, `x-opencode-session-id` alone does not) whose value matches
+     the official `ses_<12 hex><14 alnum>` session-id shape.
+  3. a streamed body (`stream: true`) whose `tools` array carries a read tool
+     plus a command-execution tool — verified pairs `{read, shell}` and
+     `{read, bash}`; single tools and other pairs are rejected.
+  Pi's agent already advertises `read` + `bash`, so agent turns only need the
+  header pair; tool-less completions (`streamSimple`, title generation, …)
+  additionally get both stubs injected via the adapter's `onPayload` hook,
+  with `tool_choice: "none"` so the stubs are never called. Paid models are
+  never modified. See `src/free-tier.ts`.
+- Zero-cost models are no longer filtered out of the catalog during
+  `/api/config` — they are gated per-request instead of hidden.
+
+### Fixed
+- The console now attaches `options.apiKey: "{env:OPENCODE_CONSOLE_TOKEN}"`
+  and an org header to the managed `opencode` entry. The BYOK check treated
+  any `options.apiKey` as "bring your own key" and dropped the whole entry —
+  the catalog came back empty ("logged in, no models"). An entry is now only
+  treated as BYOK when its endpoint is off the Zen gateway.
+
+## 1.2.5
+
+### Fixed
+- "Logged in but no models": a `/api/config` result that yielded no usable
+  entries stored `allowedModels: []`, and `filterModels` then hid the entire
+  catalog — including the offline baseline. An empty or missing list now means
+  "no workspace restrictions"; the catalog is never wiped.
+- Models with a `provider` override are no longer dropped (Issue #2). They
+  route to the matching Zen gateway wire protocol and the provider registers
+  the matching API implementations (`anthropic-messages`,
+  `google-generative-ai`, `openai-responses` alongside `openai-completions`):
+  - `@ai-sdk/anthropic` → `anthropic-messages`, with the console's trailing
+    `/v1` stripped — the anthropic SDK appends `/v1/messages` itself
+  - `@ai-sdk/google` → `google-generative-ai`
+  - `@ai-sdk/openai` → `openai-responses` for the gpt/grok/muse families,
+    `openai-completions` otherwise
+  - unknown npm packages (vertex, bedrock, openrouter, …) stay excluded —
+    they cannot route through the Zen gateway
+- Console switches are respected: `blacklist` entries and models with
+  `status: "deprecated"` are excluded (opencode itself treats
+  `status !== "deprecated"` as enabled).
+- `/api/config` entries beyond `provider.opencode` are read too: entries with
+  a Zen-routable `npm`/`api` contribute their models; BYOK entries (own
+  `options.baseURL`/`apiKey`) and entries with no routable protocol are
+  skipped.
+- A failing `/api/config` fetch during login no longer aborts the login —
+  `allowedModels` stays unset and the next catalog refresh retries.
+- `auth.ts` used the `ZenModelMeta` type without importing it (bun masked it;
+  tsc reported it).
+
 ## 1.2.4
 
 ### Fixed
