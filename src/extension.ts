@@ -10,6 +10,7 @@ import { INFERENCE_URL, MODELS, modelFromZen, type ZenApi } from "./models.ts";
 import {
 	applyFreeTierGate,
 	applyFreeTierGateAnthropic,
+	applyFreeTierGateResponses,
 	freeTierHeaders,
 	isZeroCostModel,
 } from "./free-tier.ts";
@@ -36,12 +37,13 @@ function withFreeTierGate<T extends object>(streams: T): T {
 					? { headers: { ...((opts.headers as Record<string, string>) ?? {}), ...freeTierHeaders() } }
 					: {}),
 				onPayload: async (payload: unknown, m: unknown) => {
-					// every zero-cost model routes openai-completions today; the
-					// anthropic variant is here for models that switch routes
+					const api = (m as { api?: string })?.api;
 					const gated =
-						(m as { api?: string })?.api === "anthropic-messages"
+						api === "anthropic-messages"
 							? applyFreeTierGateAnthropic(payload as Record<string, unknown>, m as never)
-							: applyFreeTierGate(payload as Record<string, unknown>, m as never);
+							: api === "openai-responses"
+								? applyFreeTierGateResponses(payload as Record<string, unknown>, m as never)
+								: applyFreeTierGate(payload as Record<string, unknown>, m as never);
 					const next = gated ?? payload;
 					return caller ? caller(next, m) : next;
 				},
@@ -100,11 +102,10 @@ export const provider = createProvider<ZenApi>({
 			: models;
 	},
 	api: {
-		// the gate only ever fires for zero-cost models; headers cover any
-		// route, the body stubs follow the route's own tool format
+		// the gate fires for zero-cost models only; google has none today
 		"openai-completions": withFreeTierGate(openAICompletionsApi()),
 		"anthropic-messages": withFreeTierGate(anthropicMessagesApi()),
-		"openai-responses": openAIResponsesApi(),
+		"openai-responses": withFreeTierGate(openAIResponsesApi()),
 		"google-generative-ai": googleGenerativeAIApi(),
 	},
 });

@@ -145,6 +145,53 @@ export function applyFreeTierGateAnthropic(
 	return { ...payload, tools: [...existing, ...missing] };
 }
 
+// OpenAI-Responses-wire variants for the openai-responses route: flat
+// {type: "function", name, description, parameters} entries. The Responses API
+// accepts tool_choice "none", so the same mute-when-toolless rule applies.
+const RESPONSES_STUBS: Record<string, { type: "function"; name: string; description: string; parameters: unknown }> = {
+	read: {
+		type: "function",
+		name: "read",
+		description: "Read a file from disk.",
+		parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+	},
+	bash: {
+		type: "function",
+		name: "bash",
+		description: "Run a shell command.",
+		parameters: { type: "object", properties: { command: { type: "string" } }, required: ["command"] },
+	},
+};
+
+/**
+ * OpenAI-Responses variant of the gate: same zero-cost condition and
+ * read/exec pair, in the Responses tool shape. `toolName`/`hasPair` work
+ * unchanged — Responses function tools carry a flat `name`.
+ */
+export function applyFreeTierGateResponses(
+	payload: Record<string, unknown>,
+	model: { cost?: { input?: number; output?: number } },
+): Record<string, unknown> | undefined {
+	if (!payload || typeof payload !== "object") return undefined;
+	if (!isZeroCostModel(model)) return undefined;
+
+	const existing: unknown[] = Array.isArray(payload.tools) ? (payload.tools as unknown[]) : [];
+	if (hasPair(existing)) return undefined;
+
+	const names = new Set(existing.map(toolName));
+	const missing: unknown[] = [];
+	if (!READ_NAMES.some((r) => names.has(r))) missing.push(RESPONSES_STUBS.read);
+	if (!EXEC_NAMES.some((e) => names.has(e))) missing.push(RESPONSES_STUBS.bash);
+
+	const next: Record<string, unknown> = { ...payload, tools: [...existing, ...missing] };
+	// NOTE: the responses endpoint rejects tool_choice "none" (400) — unlike
+	// completions there is no way to mute the stubs here. Tool-less payloads
+	// keep the caller's tool_choice (or the endpoint default) so the stubs are
+	// technically callable; in practice tool-less completions (title gen, …)
+	// rarely emit calls, and agent turns already carry real tools.
+	return next;
+}
+
 /**
  * Injects the free-tier gate into an openai-completions payload. Returns the
  * payload to send, or undefined when nothing needs to change (paid model, or a

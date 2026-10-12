@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	applyFreeTierGate,
 	applyFreeTierGateAnthropic,
+	applyFreeTierGateResponses,
 	freeTierHeaders,
 	freeTierSessionId,
 	isZeroCostModel,
@@ -131,6 +132,30 @@ describe("applyFreeTierGate", () => {
 		expect(next!.model).toBe("big-pickle");
 		expect(next!.stream).toBe(true);
 		expect(next!.temperature).toBe(0.5);
+	});
+});
+
+describe("applyFreeTierGateResponses", () => {
+	test("tool-less payloads get responses-shaped read + bash stubs, unmuted", () => {
+		const next = applyFreeTierGateResponses({ model: "muse-spark-1.3-contributor-free", input: [] }, { cost: ZERO.cost });
+		expect(next).toBeDefined();
+		expect((next!.tools as any[]).map((t) => t.name)).toEqual(["read", "bash"]);
+		// responses wire shape: flat function tools, no nested function wrapper
+		expect((next!.tools as any[])[0]).toMatchObject({ type: "function", name: "read" });
+		// the responses endpoint rejects tool_choice "none" — nothing to forbid
+		expect(next!.tool_choice).toBeUndefined();
+	});
+
+	test("agent payloads that already carry read + bash are untouched", () => {
+		const tools = [
+			{ type: "function", name: "read", description: "", parameters: {} },
+			{ type: "function", name: "bash", description: "", parameters: {} },
+		];
+		expect(applyFreeTierGateResponses({ tools }, { cost: ZERO.cost })).toBeUndefined();
+	});
+
+	test("paid models are never modified", () => {
+		expect(applyFreeTierGateResponses({ input: [] }, { cost: PAID.cost })).toBeUndefined();
 	});
 });
 
