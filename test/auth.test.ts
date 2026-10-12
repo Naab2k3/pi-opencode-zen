@@ -61,8 +61,8 @@ describe("deviceToken", () => {
 		responses.push(() => ({ status: 400, body: { error: "authorization_pending" } }));
 		const poll = await deviceToken({ grant_type: "device", device_code: "x" });
 		expect(poll.error).toBe("authorization_pending");
-		expect(calls[0].url).toBe(`${CONSOLE}/auth/device/token`);
-		expect(calls[0].body.client_id).toBe(CLIENT_ID);
+		expect(calls[0]?.url).toBe(`${CONSOLE}/auth/device/token`);
+		expect(calls[0]?.body.client_id).toBe(CLIENT_ID);
 	});
 
 	test("throws on non-400 errors", async () => {
@@ -182,8 +182,8 @@ describe("allowedModelIDs", () => {
 		}));
 		const ids = await allowedModelIDs("tok", "wrk_1");
 		expect(ids).toEqual(["glm-5.3-flash", "big-pickle"]);
-		expect(calls[0].url).toBe(`${CONSOLE}/api/config`);
-		expect(calls[0].headers["x-org-id"]).toBe("wrk_1");
+		expect(calls[0]?.url).toBe(`${CONSOLE}/api/config`);
+		expect(calls[0]?.headers["x-org-id"]).toBe("wrk_1");
 	});
 
 	test("no whitelist means every enabled model", async () => {
@@ -280,13 +280,13 @@ describe("allowedModelIDs", () => {
 	});
 
 	test("filterModels narrows the catalog to allowed models", () => {
-		const filtered = provider.filterModels(
+		const filtered = provider.filterModels?.(
 			MODELS,
 			{ type: "oauth", refresh: "r", access: "a", expires: 0, allowedModels: ["glm-5.3-flash"] },
 		);
-		expect(filtered.map((m: any) => m.id)).toEqual(["glm-5.3-flash"]);
-		const all = provider.filterModels(MODELS, { type: "oauth", refresh: "r", access: "a", expires: 0 });
-		expect(all.length).toBe(MODELS.length);
+		expect(filtered?.map((m: any) => m.id)).toEqual(["glm-5.3-flash"]);
+		const all = provider.filterModels?.(MODELS, { type: "oauth", refresh: "r", access: "a", expires: 0 });
+		expect(all?.length).toBe(MODELS.length);
 	});
 });
 
@@ -299,7 +299,7 @@ describe("refreshZenToken", () => {
 			new AbortController().signal,
 		);
 		expect(credential).toEqual({ type: "oauth", refresh: "ref", access: "acc", expires: expect.any(Number), orgID: "wrk_keep" });
-		expect(calls[0].body.refresh_token).toBe("old-ref");
+		expect(calls[0]?.body.refresh_token).toBe("old-ref");
 	});
 
 	test("keeps the previous model list when refresh-time fetch fails", async () => {

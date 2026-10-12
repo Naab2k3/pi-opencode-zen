@@ -1,4 +1,5 @@
 import type { OAuthCredential, ProviderAuthInteraction } from "@earendil-works/pi-ai";
+import type { ZenModelMeta } from "./models.ts";
 
 // OpenCode Zen console auth: device flow, workspace selection, token refresh.
 
@@ -47,8 +48,8 @@ export async function fetchOrgs(token: string, signal?: AbortSignal): Promise<Or
 		signal,
 	});
 	if (!res.ok) throw new Error(`Failed to fetch workspaces: HTTP ${res.status}`);
-	const data = await res.json();
-	return (Array.isArray(data) ? data : (data.orgs ?? [])).map((o: any) => ({ id: o.id, name: o.name ?? o.id }));
+	const data = (await res.json()) as Org[] | { orgs?: Org[] };
+	return (Array.isArray(data) ? data : (data.orgs ?? [])).map((o) => ({ id: o.id, name: o.name ?? o.id }));
 }
 
 // Model IDs the workspace allows: not disabled, and on the org whitelist (if one exists).
@@ -74,11 +75,14 @@ export async function fetchZenModels(
 		const hint = res.status === 400 || res.status === 401 ? " (token rejected — run /login opencode-zen)" : "";
 		throw new Error(`Failed to fetch workspace models: HTTP ${res.status}${hint}`);
 	}
-	const zen = (await res.json())?.config?.provider?.opencode;
+	const payload = (await res.json()) as {
+		config?: { provider?: { opencode?: { whitelist?: unknown; models?: Record<string, ZenModelMeta> } } };
+	};
+	const zen = payload?.config?.provider?.opencode;
 	if (!zen) return {};
-	const whitelist: string[] | undefined = Array.isArray(zen.whitelist) ? zen.whitelist : undefined;
+	const whitelist: string[] | undefined = Array.isArray(zen.whitelist) ? (zen.whitelist as string[]) : undefined;
 	return Object.fromEntries(
-		Object.entries<ZenModelMeta>(zen.models ?? {}).filter(
+		Object.entries(zen.models ?? {}).filter(
 			([id, model]) =>
 				model?.disabled !== true &&
 				(!whitelist || whitelist.includes(id)) &&
@@ -132,7 +136,7 @@ export async function loginZen(interaction: ProviderAuthInteraction): Promise<Ze
 			interaction.notify({ type: "progress", message: "Approved. Loading workspaces..." });
 			const orgs = await fetchOrgs(credential.access, interaction.signal);
 			if (orgs.length === 1) {
-				credential.orgID = orgs[0].id;
+				credential.orgID = orgs[0]!.id;
 			} else if (orgs.length > 1) {
 				credential.orgID = await interaction.prompt({
 					type: "select",

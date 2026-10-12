@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createProvider, type ApiKeyCredential, type ProviderAuthInteraction } from "@earendil-works/pi-ai";
+import { createProvider, type ApiKeyCredential } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import { INFERENCE_URL, MODELS, modelFromZen } from "./models.ts";
 import { UA, fetchZenModels, loginZen, refreshZenToken, type ZenCredential } from "./auth.ts";
@@ -13,13 +13,16 @@ export const provider = createProvider<"openai-completions">({
 			name: "OpenCode Zen (workspace)",
 			login: loginZen,
 			refresh: refreshZenToken,
-			toAuth: async (credential) => ({
-				apiKey: credential.access,
-				headers: {
-					"User-Agent": UA,
-					...(credential.orgID ? { "x-opencode-org-id": credential.orgID } : {}),
-				},
-			}),
+			toAuth: async (credential) => {
+				const { orgID, access: apiKey } = credential as ZenCredential;
+				return {
+					apiKey,
+					headers: {
+						"User-Agent": UA,
+						...(orgID ? { "x-opencode-org-id": orgID } : {}),
+					},
+				};
+			},
 		},
 		apiKey: {
 			name: "OpenCode Zen API key",
@@ -41,10 +44,10 @@ export const provider = createProvider<"openai-completions">({
 		const entries = await fetchZenModels(credential.access, credential.orgID, context.signal);
 		return Object.entries(entries).map(([id, meta]) => modelFromZen(id, meta));
 	},
-	filterModels: (models, credential) =>
-		Array.isArray(credential?.allowedModels)
-			? models.filter((m) => (credential.allowedModels as string[]).includes(m.id))
-			: models,
+	filterModels: (models, credential) => {
+		const allowed = (credential as ZenCredential | undefined)?.allowedModels;
+		return Array.isArray(allowed) ? models.filter((m) => allowed.includes(m.id)) : models;
+	},
 	api: { "openai-completions": openAICompletionsApi() },
 });
 
