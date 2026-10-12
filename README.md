@@ -1,5 +1,9 @@
 # opencode-zen-oauth
 
+[![npm downloads](https://img.shields.io/npm/dm/opencode-zen-oauth?label=downloads)](https://pi.dev/packages/opencode-zen-oauth?name=opencode-zen-oauth)
+
+[![Package on Pi](./assets/pi-dev-package.png)](https://pi.dev/packages/opencode-zen-oauth?name=opencode-zen-oauth)
+
 **English** | [Tiếng Việt](./README.vi.md)
 
 OpenCode Zen inside pi — no API keys. Workspace members can finally use Zen too.
