@@ -1,5 +1,5 @@
 import type { OAuthCredential, ProviderAuthInteraction } from "@earendil-works/pi-ai";
-import type { ZenModelMeta } from "./models.ts";
+import { resolveZenRoute, type ZenModelMeta } from "./models.ts";
 
 // OpenCode Zen console auth: device flow, workspace selection, token refresh.
 
@@ -76,22 +76,61 @@ export async function fetchZenModels(
 		throw new Error(`Failed to fetch workspace models: HTTP ${res.status}${hint}`);
 	}
 	const payload = (await res.json()) as {
-		config?: { provider?: { opencode?: { whitelist?: unknown; models?: Record<string, ZenModelMeta> } } };
+		config?: { provider?: Record<string, Record<string, unknown> | undefined> };
 	};
-	const zen = payload?.config?.provider?.opencode;
-	if (!zen) return {};
-	const whitelist: string[] | undefined = Array.isArray(zen.whitelist) ? (zen.whitelist as string[]) : undefined;
-	return Object.fromEntries(
-		Object.entries(zen.models ?? {}).filter(
-			([id, model]) =>
-				model?.disabled !== true &&
-				(!whitelist || whitelist.includes(id)) &&
-				// per-model provider overrides use a different wire protocol
-				model?.provider === undefined &&
-				// zero-cost models are free-tier: Zen rejects them outside opencode (FreeTierError)
-				!(model?.cost && (model.cost.input ?? 0) <= 0 && (model.cost.output ?? 0) <= 0),
-		),
-	);
+	const entries = payload?.config?.provider;
+	if (!entries || typeof entries !== "object") return {};
+	const out: Record<string, ZenModelMeta> = {};
+	// Endpoints under opencode.ai/inference are the Zen gateway itself: the
+	// workspace manages them and the OAuth token authenticates them (the
+	// console even hands out a `{env:...}` apiKey placeholder there). Only an
+	// entry pointing somewhere else with its own credentials is BYOK.
+	const isZenGateway = (url: unknown): boolean => typeof url === "string" && url.includes("opencode.ai/inference");
+	for (const [providerId, block] of Object.entries(entries)) {
+		if (!block || typeof block !== "object") continue;
+		const entry = block as {
+			options?: { baseURL?: unknown; apiKey?: unknown };
+			api?: unknown;
+			npm?: unknown;
+			whitelist?: unknown;
+			blacklist?: unknown;
+			models?: Record<string, ZenModelMeta>;
+		};
+		// entries carrying their own endpoint/key are BYOK — the Zen OAuth
+		// token cannot authenticate them
+		if (
+			(entry.options?.baseURL || entry.options?.apiKey) &&
+			!isZenGateway(entry.options?.baseURL) &&
+			!isZenGateway(entry.api)
+		)
+			continue;
+		// provider-level npm/api applies to every model without its own override
+		const entryOverride =
+			entry.npm || entry.api
+				? { npm: entry.npm as string | undefined, api: entry.api as string | undefined }
+				: undefined;
+		const whitelist: Set<string> | undefined = Array.isArray(entry.whitelist) ? new Set(entry.whitelist as string[]) : undefined;
+		const blacklist: Set<string> | undefined = Array.isArray(entry.blacklist) ? new Set(entry.blacklist as string[]) : undefined;
+		for (const [id, model] of Object.entries(entry.models ?? {})) {
+			if (!model || typeof model !== "object") continue;
+			if (model.disabled === true) continue;
+			// opencode itself disables models with status "deprecated"
+			if (model.status === "deprecated") continue;
+			if (whitelist && !whitelist.has(id)) continue;
+			if (blacklist?.has(id)) continue;
+			// only the zen entry has a default wire protocol; elsewhere every
+			// model must name its route (model.provider or entry npm/api)
+			if (providerId !== "opencode" && !entryOverride && !model.provider) continue;
+			const merged: ZenModelMeta = { ...model, provider: model.provider ?? entryOverride };
+			// skip models whose provider override cannot be routed via Zen
+			if (!resolveZenRoute(id, merged)) continue;
+			// zero-cost (free-tier) models stay listed: the gateway answers
+			// them with FreeTierError outside the opencode client, but hiding
+			// them re-creates the "logged in, no models" confusion
+			out[id] = merged;
+		}
+	}
+	return out;
 }
 
 function credentialFrom(poll: any): ZenCredential {
@@ -145,10 +184,15 @@ export async function loginZen(interaction: ProviderAuthInteraction): Promise<Ze
 				});
 			}
 			if (credential.orgID) {
-				credential.allowedModels = await allowedModelIDs(credential.access, credential.orgID, interaction.signal);
+				try {
+					credential.allowedModels = await allowedModelIDs(credential.access, credential.orgID, interaction.signal);
+				} catch {
+					// config fetch failed — login still works; the next catalog
+					// refresh retries fetchModels
+				}
 				interaction.notify({
 					type: "progress",
-					message: `Workspace ready. Models available: ${credential.allowedModels.join(", ") || "none"}`,
+					message: `Workspace ready. Models available: ${credential.allowedModels?.join(", ") || "workspace defaults"}`,
 				});
 			}
 			return credential;
