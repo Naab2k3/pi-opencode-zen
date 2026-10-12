@@ -60,3 +60,8 @@ hiệu coding-agent mà gateway kiểm tra), xem `src/free-tier.ts`.
 ## License
 
 MIT
+
+## Changelog
+
+Xem [CHANGELOG.md](./CHANGELOG.md) và
+[GitHub releases](https://github.com/Naab2k3/pi-opencode-zen/releases).

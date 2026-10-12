@@ -18,6 +18,7 @@
     "index.ts",
     "src/",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "pi": {

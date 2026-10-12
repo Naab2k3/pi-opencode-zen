@@ -70,3 +70,8 @@ the coding-agent signals the gateway checks), see `src/free-tier.ts`.
 ## License
 
 MIT
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) and
+[GitHub releases](https://github.com/Naab2k3/pi-opencode-zen/releases).
