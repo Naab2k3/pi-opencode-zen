@@ -44,8 +44,12 @@ Live example from a real workspace (your list depends on your workspace):
 |----|-------|--------|------------|--------|
 | `glm-5.3-flash` | $0.15 | $0.50 | $0.03 | text, image |
 | `deepseek-v4.1-flash` | $0.30 | $1.20 | $0.006 | text, image |
+| `big-pickle` | $0 | $0 | $0 | text |
+| `muse-spark-1.3-contributor-free` | $0 | $0 | $0 | text, image |
 
-Prices per million tokens, billed to the selected workspace.
+Prices per million tokens, billed to the selected workspace. Zero-cost rows
+are the Zen free tier: they work through this extension (the request carries
+the coding-agent signals the gateway checks), see `src/free-tier.ts`.
 
 ## Security
 
@@ -59,8 +63,9 @@ Prices per million tokens, billed to the selected workspace.
 - `index.ts` — entry point pi loads; re-exports `src/extension.ts`
 - `src/extension.ts` — provider assembly and registration
 - `src/auth.ts` — device-flow login, workspace selection, token refresh
-- `src/models.ts` — console-to-pi model mapping
-- `test/auth.test.ts` — bun test suite with mocked fetch (`bun test`)
+- `src/models.ts` — console-to-pi model mapping, per-route wire protocols
+- `src/free-tier.ts` — free-tier gateway signals per route (headers + stubs)
+- `test/` — bun test suite with mocked fetch (`bun test`)
 
 ## License
 

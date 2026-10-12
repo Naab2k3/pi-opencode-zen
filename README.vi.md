@@ -36,8 +36,12 @@ Ví dụ thật từ một workspace (list của bạn tùy theo workspace):
 |----|-------|--------|------------|--------|
 | `glm-5.3-flash` | $0.15 | $0.50 | $0.03 | text, image |
 | `deepseek-v4.1-flash` | $0.30 | $1.20 | $0.006 | text, image |
+| `big-pickle` | $0 | $0 | $0 | text |
+| `muse-spark-1.3-contributor-free` | $0 | $0 | $0 | text, image |
 
-Giá/1 triệu token, tính vào workspace đã chọn.
+Giá/1 triệu token, tính vào workspace đã chọn. Các dòng zero-cost là
+free tier của Zen: dùng được qua extension này (request mang sẵn các tín
+hiệu coding-agent mà gateway kiểm tra), xem `src/free-tier.ts`.
 
 ## Bảo mật
 
@@ -49,8 +53,9 @@ Giá/1 triệu token, tính vào workspace đã chọn.
 - `index.ts` — entry point pi load; re-export `src/extension.ts`
 - `src/extension.ts` — ráp provider và đăng ký
 - `src/auth.ts` — login device-flow, chọn workspace, refresh token
-- `src/models.ts` — map model từ console sang pi
-- `test/auth.test.ts` — test suite bun với fetch mock (`bun test`)
+- `src/models.ts` — map model từ console sang pi, wire protocol từng route
+- `src/free-tier.ts` — tín hiệu gateway free-tier theo từng route
+- `test/` — test suite bun với fetch mock (`bun test`)
 
 ## License
 

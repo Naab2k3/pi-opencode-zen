@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.5
 
 ### Added
 - Free-tier (zero-cost) models are usable again. The Zen gateway rejects them
@@ -18,11 +18,13 @@
      `{read, bash}`; single tools and other pairs are rejected.
   Pi's agent already advertises `read` + `bash`, so agent turns only need the
   header pair; tool-less completions (`streamSimple`, title generation, …)
-  additionally get both stubs injected via the adapter's `onPayload` hook,
-  with `tool_choice: "none"` so the stubs are never called. Stubs follow the
-  route's own tool format — `openai-completions` and `anthropic-messages`
-  (flat `{name, description, input_schema}`) are both covered, so a free model
-  that later switches protocol keeps working. Paid models are never modified.
+  additionally get both stubs injected via the adapter's `onPayload` hook.
+  Stubs follow the route's own tool format — `openai-completions`,
+  `anthropic-messages` (flat `{name, description, input_schema}`) and
+  `openai-responses` (flat function tools) are all covered. On completions
+  the stubs are muted with `tool_choice: "none"`; anthropic and responses
+  have no such value so the stubs stay callable in theory (in practice
+  tool-less completions rarely emit calls). Paid models are never modified.
   See `src/free-tier.ts`.
 - Zero-cost models are no longer filtered out of the catalog during
   `/api/config` — they are gated per-request instead of hidden.
