@@ -1,10 +1,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createProvider, type ApiKeyCredential } from "@earendil-works/pi-ai";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
-import { INFERENCE_URL, MODELS, modelFromZen } from "./models.ts";
+import {
+	anthropicMessagesApi,
+	googleGenerativeAIApi,
+	openAICompletionsApi,
+	openAIResponsesApi,
+} from "@earendil-works/pi-ai/compat";
+import { INFERENCE_URL, MODELS, modelFromZen, type ZenApi } from "./models.ts";
 import { UA, fetchZenModels, loginZen, refreshZenToken, type ZenCredential } from "./auth.ts";
 
-export const provider = createProvider<"openai-completions">({
+export const provider = createProvider<ZenApi>({
 	id: "opencode-zen",
 	name: "OpenCode Zen",
 	baseUrl: INFERENCE_URL,
@@ -45,10 +50,19 @@ export const provider = createProvider<"openai-completions">({
 		return Object.entries(entries).map(([id, meta]) => modelFromZen(id, meta));
 	},
 	filterModels: (models, credential) => {
+		// an empty allowed list means "no usable workspace restrictions" — never
+		// wipe the catalog (that was the "logged in, no models" bug)
 		const allowed = (credential as ZenCredential | undefined)?.allowedModels;
-		return Array.isArray(allowed) ? models.filter((m) => allowed.includes(m.id)) : models;
+		return Array.isArray(allowed) && allowed.length > 0
+			? models.filter((m) => allowed.includes(m.id))
+			: models;
 	},
-	api: { "openai-completions": openAICompletionsApi() },
+	api: {
+		"openai-completions": openAICompletionsApi(),
+		"anthropic-messages": anthropicMessagesApi(),
+		"openai-responses": openAIResponsesApi(),
+		"google-generative-ai": googleGenerativeAIApi(),
+	},
 });
 
 export default function (pi: ExtensionAPI) {

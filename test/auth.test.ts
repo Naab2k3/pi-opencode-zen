@@ -194,7 +194,7 @@ describe("allowedModelIDs", () => {
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["a"]);
 	});
 
-	test("drops free-tier models Zen rejects outside opencode", async () => {
+	test("free-tier models stay listed (gateway may reject them outside OpenCode)", async () => {
 		mockFetch();
 		responses.push(() => ({
 			body: {
@@ -210,7 +210,34 @@ describe("allowedModelIDs", () => {
 				},
 			},
 		}));
-		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["paid"]);
+		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["paid", "free"]);
+	});
+
+	test("the managed opencode entry keeps its models even with a {env:…} apiKey placeholder", async () => {
+		// the console started attaching options.apiKey/headers to the managed
+		// entry; a BYOK-shaped check must not drop it — its api is on the
+		// Zen gateway
+		mockFetch();
+		responses.push(() => ({
+			body: {
+				config: {
+					provider: {
+						opencode: {
+							npm: "@ai-sdk/openai-compatible",
+							api: "https://opencode.ai/inference/openai/v1",
+							options: { apiKey: "{env:OPENCODE_CONSOLE_TOKEN}", headers: { "x-opencode-org-id": "wrk_1" } },
+							models: { "big-pickle": { cost: { input: 0, output: 0 } } },
+						},
+						openrouter: {
+							npm: "@openrouter/ai-sdk-provider",
+							options: { baseURL: "https://openrouter.ai/api/v1", apiKey: "sk-real" },
+							models: { "some/model": { cost: { input: 1, output: 2 } } },
+						},
+					},
+				},
+			},
+		}));
+		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["big-pickle"]);
 	});
 
 	test("empty config returns no models", async () => {
@@ -227,23 +254,31 @@ describe("allowedModelIDs", () => {
 		expect(fetchZenModels("tok", "wrk_1")).rejects.toThrow("/login opencode-zen");
 	});
 
-	test("skips models with a custom provider override", async () => {
-		mockFetch();
-		responses.push(() => ({
+	test("routes models with a custom provider override instead of skipping them", async () => {
+		const fixture = () => ({
 			body: {
 				config: {
 					provider: {
 						opencode: {
 							models: {
-								ok: { disabled: false },
-								anthropicish: { disabled: false, provider: { npm: "@ai-sdk/anthropic" } },
+								ok: { disabled: false, cost: { input: 1, output: 2 } },
+								anthropicish: {
+									disabled: false,
+									cost: { input: 0.15, output: 0.47 },
+									provider: { npm: "@ai-sdk/anthropic", api: "https://opencode.ai/inference/anthropic/v1" },
+								},
 							},
 						},
 					},
 				},
 			},
-		}));
-		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["ok"]);
+		});
+		mockFetch();
+		responses.push(fixture);
+		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["ok", "anthropicish"]);
+		responses.push(fixture);
+		const routed = await fetchZenModels("tok", "wrk_1");
+		expect(routed["anthropicish"]?.provider?.npm).toBe("@ai-sdk/anthropic");
 	});
 
 	test("modelFromZen maps console metadata to a pi model", () => {
