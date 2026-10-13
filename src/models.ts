@@ -80,8 +80,10 @@ export function resolveZenRoute(id: string, meta: ZenModelMeta): ZenRoute | unde
 }
 
 export function modelFromZen(id: string, meta: ZenModelMeta): Model<ZenApi> {
-	const route = resolveZenRoute(id, meta) ?? { api: "openai-completions", baseUrl: INFERENCE_URL };
 	const cost = meta.cost ?? { input: 0, output: 0, cache_read: 0 };
+	const free = meta.cost !== undefined && (cost.input ?? 0) <= 0 && (cost.output ?? 0) <= 0;
+	const route = free ? { api: "openai-responses" as const, baseUrl: INFERENCE_URL } :
+		(resolveZenRoute(id, meta) ?? { api: "openai-completions" as const, baseUrl: INFERENCE_URL });
 	return {
 		id,
 		name: meta.name ?? id,

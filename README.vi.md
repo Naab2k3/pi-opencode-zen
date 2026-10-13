@@ -44,8 +44,9 @@ Ví dụ thật từ một workspace (list của bạn tùy theo workspace):
 | `muse-spark-1.3-contributor-free` | $0 | $0 | $0 | text, image |
 
 Giá/1 triệu token, tính vào workspace đã chọn. Các dòng zero-cost là
-free tier của Zen: dùng được qua extension này (request mang sẵn các tín
-hiệu coding-agent mà gateway kiểm tra), xem `src/free-tier.ts`.
+free tier của Zen: extension thỏa mãn content gate của gateway (marker
+prompt + shape lịch sử, xem `src/v2-gate.ts`) và chạy tool calling qua
+text protocol trên các model đó.
 
 ## Bảo mật
 
@@ -58,7 +59,8 @@ hiệu coding-agent mà gateway kiểm tra), xem `src/free-tier.ts`.
 - `src/extension.ts` — ráp provider và đăng ký
 - `src/auth.ts` — login device-flow, chọn workspace, refresh token
 - `src/models.ts` — map model từ console sang pi, wire protocol từng route
-- `src/free-tier.ts` — tín hiệu gateway free-tier theo từng route
+- `src/free-tier.ts` — identity headers cho free-tier
+- `src/v2-gate.ts` — content gate free-tier: marker prompt, shape lịch sử, text-protocol tools
 - `test/` — test suite bun với fetch mock (`bun test`)
 
 ## License

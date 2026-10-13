@@ -52,8 +52,9 @@ Live example from a real workspace (your list depends on your workspace):
 | `muse-spark-1.3-contributor-free` | $0 | $0 | $0 | text, image |
 
 Prices per million tokens, billed to the selected workspace. Zero-cost rows
-are the Zen free tier: they work through this extension (the request carries
-the coding-agent signals the gateway checks), see `src/free-tier.ts`.
+are the Zen free tier: the extension satisfies the gateway's content gate
+(marker prompt + history shape, `src/v2-gate.ts`) and runs tool calling as a
+text protocol on those models.
 
 ## Security
 
@@ -68,7 +69,8 @@ the coding-agent signals the gateway checks), see `src/free-tier.ts`.
 - `src/extension.ts` — provider assembly and registration
 - `src/auth.ts` — device-flow login, workspace selection, token refresh
 - `src/models.ts` — console-to-pi model mapping, per-route wire protocols
-- `src/free-tier.ts` — free-tier gateway signals per route (headers + stubs)
+- `src/free-tier.ts` — free-tier identity headers per request
+- `src/v2-gate.ts` — free-tier content gate: marker prompt, history shape, text-protocol tools
 - `test/` — bun test suite with mocked fetch (`bun test`)
 
 ## License
