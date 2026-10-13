@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Free-tier (zero-cost) models work again — the gateway's session check got
+  stricter and started answering `403 FreeTierError` for nearly every request.
+  The `ses_` session id still only has to look like one opencode minted, but
+  the gateway now *decodes* its 12-hex half instead of pattern-matching it, and
+  rejects ids whose embedded counter is 64 or above. `freeTierSessionId()`
+  generated that counter as `1 + random(4095)`, so only 63/4095 ≈ 1.5% of
+  requests carried an acceptable value. It now mirrors opencode's own scheme —
+  a counter that restarts at 1 every millisecond — and steps to the next
+  millisecond rather than ever leaving the accepted band. Verified against
+  `big-pickle`: 12/12 freshly minted ids accepted, agent turns and tool-less
+  turns alike.
+
 ## 1.2.5
 
 ### Added

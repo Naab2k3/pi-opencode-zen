@@ -27,6 +27,30 @@ describe("freeTierSessionId", () => {
 		const ids = new Set(Array.from({ length: 20 }, () => freeTierSessionId()));
 		expect(ids.size).toBe(20);
 	});
+
+	// The gateway decodes the 12-hex half back into (timestamp, counter) and
+	// rejects counters >= 64 with FreeTierError, so the random counter this
+	// used to emit only passed 63/4095 ≈ 1.5% of the time.
+	test("embedded counter stays inside the range the gateway accepts", () => {
+		const MASK = (1n << 48n) - 1n;
+		const counterOf = (id: string) => {
+			const combined = (~BigInt(`0x${id.slice(4, 16)}`)) & MASK;
+			return combined & 0xfffn;
+		};
+		// 100 ids minted back-to-back all land in the same millisecond, which
+		// is exactly the case that used to overflow the accepted band
+		for (let i = 0; i < 100; i++) {
+			const id = freeTierSessionId();
+			const counter = counterOf(id);
+			expect(counter).toBeGreaterThan(0n);
+			expect(counter).toBeLessThanOrEqual(63n);
+		}
+	});
+
+	test("100 ids minted in one burst are still unique", () => {
+		const ids = new Set(Array.from({ length: 100 }, () => freeTierSessionId()));
+		expect(ids.size).toBe(100);
+	});
 });
 
 describe("freeTierHeaders", () => {

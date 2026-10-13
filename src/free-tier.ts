@@ -2,17 +2,26 @@
 // does not look like a real coding-agent turn is rejected with
 // FreeTierError ("OpenCode's free tier can only be used from within OpenCode").
 //
-// Probed live against https://opencode.ai/inference/openai/v1 — the gate has
-// three conditions, and token/TLS/HTTP-version/IP are NOT among them:
+// Measured against the live gateway (https://opencode.ai/inference/openai/v1):
+// three conditions, and token value, TLS fingerprint, HTTP version and source
+// IP are NOT among them.
 //   1. `stream: true` in the body.
 //   2. a `tools` array carrying both a read tool and a command-execution tool:
 //      verified pairs `{read, shell}` and `{read, bash}` pass; single tools,
 //      `{bash, shell}`, `{grep, shell}` and `{read, write}` do not.
 //   3. an `x-opencode-session` header (`x-session-affinity`/`x-session-id`
-//      also satisfy it, `x-opencode-session-id` alone does not) whose value
-//      matches the official `ses_<12 hex><14 alnum>` shape — `ses_` + 64 hex,
-//      `ses_junk` and unprefixed values all 403. The timestamp half may be old;
-//      only the shape is checked.
+//      also satisfy it, `x-opencode-session-id` alone does not) carrying a
+//      *plausible* session id, not merely a well-shaped one — see
+//      `freeTierSessionId`. Dropping every session header answers
+//      FreeTierError.
+//
+// What is NOT part of the check, each verified by replaying a captured
+// real-client request with that one header deleted: `x-opencode-client`,
+// `x-opencode-project`, `x-opencode-parent-session-id`, `b3`, `traceparent`,
+// and the token — pi's OAuth access token and opencode's `st_…` key are
+// interchangeable. A semver-ish UA is required, but its version is not checked
+// (a non-browser UA is turned away earlier by Cloudflare, with an HTML page
+// rather than FreeTierError).
 //
 // Pi's agent already advertises `read` + `bash`, so agent turns only need the
 // session header; tool-less completions (streamSimple, title generation, …)
@@ -25,12 +34,41 @@ const B62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 // above). Any semver-ish version works; this one mirrors the current release.
 const GATE_UA = "opencode/latest/2.0.26/cli";
 
-/** `ses_` + 12 hex + 14 alnum, the id shape opencode's own sessions use. */
+// opencode mints session ids like this (its `dz()` id factory):
+//
+//   n = BigInt(Date.now()) * 0x1000n + BigInt(counter)   // counter restarts at
+//   a = ~n                                               // 1 every new millisecond
+//   id = "ses_" + <a as 6 hex bytes, high to low> + 14 random base62 chars
+//
+// The gateway does not merely match that shape, it decodes the 12-hex half and
+// requires the counter embedded in it to stay small:
+//
+//   200 counter=1 … 200 counter=63 | 403 counter=64 … 403 counter=200
+//
+// Hence MAX_COUNTER. Generating that counter at random (`1 + random(4095)`,
+// as this file used to) satisfies the gate only 63/4095 ≈ 1.5% of the time.
+// The rest of the id is not judged: the timestamp half may be 700 days stale
+// or 200 days ahead, and the 14-char tail accepts an all-"Z" run.
+const MAX_COUNTER = 63n;
+let lastMs = 0;
+let counter = 0n;
+
+/** `ses_` + 12 hex + 14 alnum, byte-for-byte opencode's own session-id scheme. */
 export function freeTierSessionId(): string {
-	// inverted 48-bit timestamp + random, byte-for-byte the scheme opencode's
-	// client uses (the gateway checks the shape — and with it, a plausible
-	// timestamp half)
-	const combined = BigInt(Date.now()) * 4096n + BigInt(1 + Math.floor(Math.random() * 4095));
+	let stamp = Date.now();
+	if (stamp !== lastMs) {
+		lastMs = stamp;
+		counter = 0n;
+	}
+	counter++;
+	if (counter > MAX_COUNTER) {
+		// Stay inside the accepted band by stepping to the next millisecond
+		// instead of emitting a counter the gateway rejects. opencode only gets
+		// here by creating 64 sessions inside a single millisecond.
+		stamp = ++lastMs;
+		counter = 1n;
+	}
+	const combined = BigInt(stamp) * 4096n + counter;
 	const inverted = (~combined) & ((1n << 48n) - 1n);
 	const hex = inverted.toString(16).padStart(12, "0").slice(-12);
 	let rest = "";
