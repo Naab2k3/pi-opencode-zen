@@ -240,6 +240,14 @@ describe("allowedModelIDs", () => {
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["big-pickle"]);
 	});
 
+	test("routes free models through OpenAI Responses regardless of catalog provider override", () => {
+		const model = modelFromZen("big-pickle", {
+			cost: { input: 0, output: 0 },
+			provider: { npm: "@ai-sdk/openai-compatible", api: "https://opencode.ai/inference/openai/v1" },
+		});
+		expect(model.api).toBe("openai-responses");
+	});
+
 	test("empty config returns no models", async () => {
 		mockFetch();
 		responses.push(() => ({ body: { config: { provider: {} } } }));

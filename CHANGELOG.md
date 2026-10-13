@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.6
+
+### Changed
+- Free-tier (zero-cost) models work through the v2 content gate again. The
+  gateway now checks the request body: a leading developer message must carry
+  OpenCode's own title-generator prompt verbatim, native `tools` declarations
+  are rejected, and identity headers must name the official client
+  (`opencode/latest/2.0.27/cli`, `x-opencode-client: cli`, one
+  `x-opencode-session` header). The extension injects the marker, collapses
+  history to `[marker, system, user]`, and strips tool declarations on free
+  models only; paid requests are never modified.
+- Tool calling on free models runs as a text protocol: the system prompt
+  teaches fenced ```tool JSON blocks, `message_end` converts them back into
+  real pi tool calls (parallel blocks supported), and results return through
+  the transcript. Verified live: chat, read, bash on muse-spark free.
+
+### Fixed
+- Free-model detection no longer depends on the catalog refresh having run:
+  zero-cost cost metadata or a `-free` id suffix both qualify.
+
 ## 1.2.5
 
 ### Added
