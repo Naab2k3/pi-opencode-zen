@@ -6,7 +6,7 @@
 
 **[English](./README.md)** | **Tiếng Việt**
 
-Dùng OpenCode Zen trong pi — khỏi cần API key. Member trong workspace cũng xài được.
+Dùng OpenCode Zen trong pi — khỏi cần API key. Bạn là member (không phải owner) của workspace? Extension này sinh ra cho bạn.
 
 ## Cài đặt
 
@@ -19,8 +19,10 @@ pi install npm:opencode-zen-oauth
 Console v2 của OpenCode giấu API key với member, còn token OAuth đem gọi thẳng thì bị từ chối ngoài client chính chủ. Ba bức tường, một extension gỡ hết:
 
 1. **Khỏi quản lý key.** `/login opencode-zen` hiện trang device-code, bạn approve một lần trên browser, pi tự lưu và tự refresh token.
-2. **An toàn theo workspace.** Approve xong về terminal chọn workspace (cứ để trang web ở "All workspaces"). Mọi request tự gắn đúng header org, `/model` chỉ hiện model mà workspace đó cho phép.
-3. **Danh sách model tự cập nhật.** Model list refresh từ chính workspace — model bị disable hay ngoài whitelist của admin tự biến mất, context limit và giá/1M token map tự động.
+2. **An toàn theo workspace.** Approve xong về terminal chọn workspace (cứ để trang web ở "All workspaces"). Mọi request tự gắn đúng header org, `/model` chỉ hiện model mà workspace đó cho phép. Xài thêm workspace nữa? `/opencode-zen switch-org` là xong, khỏi login lại (chỉ có hiệu lực trong session; muốn giữ sau restart thì login lại).
+3. **Danh sách model tự cập nhật.** Model list refresh từ chính workspace — model bị disable hay ngoài whitelist của admin tự biến mất, context limit và giá/1M token map tự động. Discovery mà trục trặc, pi vẫn hiện list cũ thay vì trắng trang.
+
+Gateway thỉnh thoảng trả 502/503? Extension tự retry với backoff trước khi bạn kịp thấy lỗi. Claude đời mới (Haiku 5.5, Sonnet/Opus 5.x, Fable 5) được gửi đúng dạng adaptive thinking mà gateway yêu cầu.
 
 ## Đăng nhập
 
@@ -59,6 +61,8 @@ text protocol trên các model đó.
 - `src/extension.ts` — ráp provider và đăng ký
 - `src/auth.ts` — login device-flow, chọn workspace, refresh token
 - `src/models.ts` — map model từ console sang pi, wire protocol từng route
+- `src/retry.ts` — retry có giới hạn cho lỗi transient và option bị từ chối
+- `src/commands.ts` — lệnh `/opencode-zen` (status, switch-org)
 - `src/free-tier.ts` — identity headers cho free-tier
 - `src/v2-gate.ts` — content gate free-tier: marker prompt, shape lịch sử, text-protocol tools
 - `test/` — test suite bun với fetch mock (`bun test`)
