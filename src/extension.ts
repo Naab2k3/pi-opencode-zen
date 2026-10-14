@@ -7,6 +7,7 @@ import {
 	openAIResponsesApi,
 } from "@earendil-works/pi-ai/compat";
 import { INFERENCE_URL, MODELS, modelFromZen, type ZenApi } from "./models.ts";
+import { withRequestRetries } from "./retry.ts";
 import { freeTierHeaders, isZeroCostModel } from "./free-tier.ts";
 import { buildTextToolProtocol, convertTextToolMessage, shapeFreeTierRequest } from "./v2-gate.ts";
 import { UA, fetchZenModels, loginZen, refreshZenToken, type ZenCredential } from "./auth.ts";
@@ -90,10 +91,10 @@ export const provider = createProvider<ZenApi>({
 	},
 	api: {
 		// the gate fires for zero-cost models only; google has none today
-		"openai-completions": withFreeTierGate(openAICompletionsApi()),
-		"anthropic-messages": withFreeTierGate(anthropicMessagesApi()),
-		"openai-responses": withFreeTierGate(openAIResponsesApi()),
-		"google-generative-ai": googleGenerativeAIApi(),
+		"openai-completions": withRequestRetries(withFreeTierGate(openAICompletionsApi())),
+		"anthropic-messages": withRequestRetries(withFreeTierGate(anthropicMessagesApi())),
+		"openai-responses": withRequestRetries(withFreeTierGate(openAIResponsesApi())),
+		"google-generative-ai": withRequestRetries(googleGenerativeAIApi()),
 	},
 });
 
