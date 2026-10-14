@@ -6,7 +6,7 @@
 
 **English** | [Tiếng Việt](./README.vi.md)
 
-OpenCode Zen inside pi — no API keys. Workspace members can finally use Zen too.
+OpenCode Zen inside pi — no API keys. If you're a workspace member (not the owner), this is how you get Zen models in pi.
 
 ## Install
 
@@ -19,14 +19,21 @@ pi install npm:opencode-zen-oauth
 OpenCode's v2 console hides API keys from workspace members, and raw OAuth
 tokens get rejected outside the official client. Three walls, one extension:
 
-1. **No keys to manage.** `/login opencode-zen` opens a device-code page, you
+1. **No keys to manage.** `/login opencode-zen` shows a device code, you
    approve once in the browser, pi stores and refreshes the token itself.
 2. **Workspace-safe.** Pick your workspace in the pi TUI after approval
    (leave the web page on "All workspaces"). Every request carries the
    matching org header, and `/model` only lists what that workspace allows.
+   On a second workspace? `/opencode-zen switch-org` — no re-login needed
+   (session-scoped; re-login to keep it after a restart).
 3. **Catalog that keeps up.** The model list refreshes from the workspace
    itself — disabled models and admin whitelists respected, context limits
-   and per-million-token prices mapped automatically.
+   and per-million-token prices mapped automatically. If discovery hiccups,
+   pi keeps serving your last-known list instead of going blank.
+
+Flaky gateway responses (the odd 502/503) are retried with backoff before
+you ever see an error, and newer Claude models (Haiku 5.5, Sonnet/Opus 5.x,
+Fable 5) get the adaptive thinking form the gateway requires.
 
 ## Login flow
 
@@ -69,6 +76,8 @@ text protocol on those models.
 - `src/extension.ts` — provider assembly and registration
 - `src/auth.ts` — device-flow login, workspace selection, token refresh
 - `src/models.ts` — console-to-pi model mapping, per-route wire protocols
+- `src/retry.ts` — bounded retries for transient failures and rejected options
+- `src/commands.ts` — `/opencode-zen` command (status, switch-org)
 - `src/free-tier.ts` — free-tier identity headers per request
 - `src/v2-gate.ts` — free-tier content gate: marker prompt, history shape, text-protocol tools
 - `test/` — bun test suite with mocked fetch (`bun test`)
