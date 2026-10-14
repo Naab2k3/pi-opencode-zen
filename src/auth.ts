@@ -113,6 +113,10 @@ export async function fetchZenModels(
 		const blacklist: Set<string> | undefined = Array.isArray(entry.blacklist) ? new Set(entry.blacklist as string[]) : undefined;
 		for (const [id, model] of Object.entries(entry.models ?? {})) {
 			if (!model || typeof model !== "object") continue;
+			// Internal console smoke-test ids and System One decision-protocol
+			// models leak into discovery; neither can serve chat.
+			if (/^test(?:[-_.]|$)/i.test(id)) continue;
+			if (/^jev(?:[-_.]|$)/i.test(id)) continue;
 			if (model.disabled === true) continue;
 			// opencode itself disables models with status "deprecated"
 			if (model.status === "deprecated") continue;
