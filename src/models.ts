@@ -79,6 +79,21 @@ export function resolveZenRoute(id: string, meta: ZenModelMeta): ZenRoute | unde
 	return { api, baseUrl };
 }
 
+// Zen's Anthropic endpoint rejects `thinking.type.enabled` for newer Claude —
+// 5th-gen across the family plus late 4.x sonnet/opus. Those need the adaptive
+// form gated on this flag; older ones (haiku-4-5, sonnet-4/4-5, opus-4-5) still
+// take the legacy budget form. Mirrors pi's bundled opencode catalog.
+const CLAUDE_VERSION = /^claude-(haiku|sonnet|opus|fable)-(\d+)(?:-(\d+))?/;
+
+function needsAdaptiveThinking(id: string): boolean {
+	const m = CLAUDE_VERSION.exec(id);
+	if (!m) return false;
+	const major = Number(m[2]);
+	const minor = m[3] === undefined ? 0 : Number(m[3]);
+	if (m[1] === "haiku" || m[1] === "fable") return major >= 5;
+	return major >= 5 || (major === 4 && minor >= 6);
+}
+
 export function modelFromZen(id: string, meta: ZenModelMeta): Model<ZenApi> {
 	const cost = meta.cost ?? { input: 0, output: 0, cache_read: 0 };
 	const free = meta.cost !== undefined && (cost.input ?? 0) <= 0 && (cost.output ?? 0) <= 0;
@@ -101,6 +116,9 @@ export function modelFromZen(id: string, meta: ZenModelMeta): Model<ZenApi> {
 		},
 		contextWindow: meta.limit?.context ?? 128000,
 		maxTokens: meta.limit?.output ?? 32000,
+		compat: route.api === "anthropic-messages" && needsAdaptiveThinking(id)
+			? { forceAdaptiveThinking: true }
+			: undefined,
 	};
 }
 

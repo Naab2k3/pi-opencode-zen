@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.8
+
+### Fixed
+- Claude models that only accept adaptive thinking (`claude-haiku-5-5`,
+  `claude-sonnet-5/5-5`, `claude-opus-5/5-5`, late 4.x sonnet/opus,
+  `claude-fable-5*`) no longer fail on Zen with
+  `"thinking.type.enabled" is not supported for this model` (Issue #10):
+  `modelFromZen` now sets `compat.forceAdaptiveThinking` for them, so pi-ai
+  sends `thinking.type: adaptive` with `output_config.effort`.
+
+### Changed
+- Dev dependencies track pi 1.2.0 (`@earendil-works/pi-ai`,
+  `@earendil-works/pi-coding-agent` `^0.99.1` → `^1.2.0`).
+
 ## 1.2.7
 
 ### Fixed
