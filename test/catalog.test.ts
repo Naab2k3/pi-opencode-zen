@@ -296,6 +296,14 @@ describe("Issue #10 repro: Claude thinking payload on the Zen wire", () => {
 		expect(params.thinking?.type).toBe("enabled");
 	});
 
+	test.each([
+		["claude-opus-4.7", "adaptive"],
+		["claude-sonnet-4.5", "enabled"],
+	] as const)("%s with dotted version sends %s thinking", async (id, type) => {
+		const params = await captureWireParams(id);
+		expect(params.thinking?.type).toBe(type);
+	});
+
 	test("without the flag the wire carries the exact payload Zen rejects", async () => {
 		const model = modelFromZen("claude-haiku-5-5", {
 			reasoning: true,

@@ -83,7 +83,7 @@ export function resolveZenRoute(id: string, meta: ZenModelMeta): ZenRoute | unde
 // 5th-gen across the family plus late 4.x sonnet/opus. Those need the adaptive
 // form gated on this flag; older ones (haiku-4-5, sonnet-4/4-5, opus-4-5) still
 // take the legacy budget form. Mirrors pi's bundled opencode catalog.
-const CLAUDE_VERSION = /^claude-(haiku|sonnet|opus|fable)-(\d+)(?:-(\d+))?/;
+const CLAUDE_VERSION = /^claude-(haiku|sonnet|opus|fable)-(\d+)(?:[-.](\d+))?/;
 
 function needsAdaptiveThinking(id: string): boolean {
 	const m = CLAUDE_VERSION.exec(id);
