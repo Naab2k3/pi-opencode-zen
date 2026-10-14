@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.9
+
+### Added
+- Bounded request retries (parity #6): transient network/server failures
+  retry up to twice with backoff, and 400s naming a rejected option
+  (e.g. `temperature`) drop the option and retry — only before any response
+  event reaches the consumer, so partial streams are never re-sent.
+- `/opencode-zen` command (`status`, `switch-org`): switch workspace without
+  re-login. Session-scoped (the extension API has no credential-write path),
+  catalog refresh, request org header, and model filtering follow the switch.
+
+### Fixed
+- Console `test*` smoke-test ids and `jev*` decision-protocol ids no longer
+  leak into the model picker.
+- Failed catalog discovery and cache-only startup keep serving the stored
+  catalog instead of wiping it (locked in by regression tests).
+
 ## 1.2.8
 
 ### Fixed

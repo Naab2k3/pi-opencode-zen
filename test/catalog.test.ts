@@ -328,6 +328,73 @@ describe("Issue #10 repro: Claude thinking payload on the Zen wire", () => {
 	});
 });
 
+describe("catalog resilience (parity #6, area: catalog)", () => {
+	const zenStored = (id: string) =>
+		modelFromZen(id, {
+			name: `${id} (Zen)`,
+			reasoning: true,
+			modalities: { input: ["text"] },
+			cost: { input: 0.15, output: 0.5, cache_read: 0.03 },
+			limit: { context: 1000000, output: 131072 },
+		});
+
+	function refreshContext(storedModels: any[], allowNetwork = true) {
+		const published: any[] = [];
+		return {
+			ctx: {
+				allowNetwork,
+				credential: { type: "oauth", refresh: "r", access: "a", expires: 0, orgID: "wrk_1" },
+				signal: new AbortController().signal,
+				stored: { models: storedModels },
+				publish: async (p: any) => {
+					p.update?.();
+					published.push(p);
+					return true;
+				},
+			} as any,
+			published,
+		};
+	}
+
+	test("failed discovery keeps serving the stored catalog (no wipe)", async () => {
+		mockFetch();
+		responses.push(() => ({ status: 500, body: { message: "boom" } }));
+		const { ctx, published } = refreshContext([zenStored("retained-model")]);
+		// the failure propagates (the composer records it); what matters is
+		// the catalog still serves the last-known list afterwards
+		await expect(provider.refreshModels?.(ctx)).rejects.toThrow();
+		expect(published.some((p) => p.persist && p.persist.models.length === 0)).toBe(false);
+		expect(provider.getModels().map((m: any) => m.id)).toContain("retained-model");
+	});
+
+	test("cache-only startup serves the stored catalog", async () => {
+		const { ctx } = refreshContext([zenStored("cached-model")], false);
+		await provider.refreshModels?.(ctx);
+		expect(provider.getModels().map((m: any) => m.id)).toContain("cached-model");
+	});
+
+	test("console smoke-test and decision-protocol ids never reach the picker", async () => {
+		mockFetch();
+		responses.push(() => ({
+			body: {
+				config: {
+					provider: {
+						opencode: {
+							models: {
+								"test-ping": { cost: { input: 0.15, output: 0.5 } },
+								"jev-1": { cost: { input: 0.15, output: 0.5 } },
+								"jev_2": { cost: { input: 0.15, output: 0.5 } },
+								"good-model": { cost: { input: 0.15, output: 0.5 } },
+							},
+						},
+					},
+				},
+			},
+		}));
+		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["good-model"]);
+	});
+});
+
 describe("login stays usable when the config fetch fails", () => {
 	const deviceStart = {
 		device_code: "dc",
