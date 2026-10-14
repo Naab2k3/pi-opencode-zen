@@ -1,6 +1,6 @@
 {
   "name": "opencode-zen-oauth",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "OpenCode Zen provider for pi via console device-flow OAuth (workspace member login)",
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -32,8 +32,8 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "^0.99.1",
-    "@earendil-works/pi-coding-agent": "^0.99.1",
+    "@earendil-works/pi-ai": "^1.2.0",
+    "@earendil-works/pi-coding-agent": "^1.2.0",
     "@types/bun": "latest",
     "typescript": "^7.0.2"
   }

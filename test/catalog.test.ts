@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { anthropicMessagesApi } from "@earendil-works/pi-ai/compat";
 import { allowedModelIDs, fetchZenModels, loginZen } from "../src/auth.ts";
 import { provider } from "../src/extension.ts";
 import { INFERENCE_URL, MODELS, modelFromZen, resolveZenRoute } from "../src/models.ts";
@@ -237,6 +238,93 @@ describe("config entries beyond the opencode key", () => {
 			},
 		}));
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual([]);
+	});
+});
+
+describe("Issue #10 repro: Claude thinking payload on the Zen wire", () => {
+	const anthropic = { npm: "@ai-sdk/anthropic", api: "https://opencode.ai/inference/anthropic/v1" };
+
+	// Runs pi-ai's real anthropic-messages request builder for a console model
+	// and captures the wire params via onPayload, aborting before any network.
+	// No credit needed: the request never leaves the process.
+	async function captureWireParams(id: string) {
+		const model = modelFromZen(id, { reasoning: true, cost: { input: 1, output: 5 }, provider: anthropic });
+		let captured: any;
+		const events = anthropicMessagesApi().streamSimple(model as any, {
+			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
+		} as any, {
+			apiKey: "test-key",
+			reasoning: "high",
+			onPayload: (params: any) => {
+				captured = params;
+				throw new Error("CAPTURE_ABORT");
+			},
+		} as any);
+		for await (const _ of events) { /* drain to the abort error event */ }
+		return captured;
+	}
+
+	test("claude-haiku-5-5 sends adaptive thinking, not the rejected enabled form", async () => {
+		const params = await captureWireParams("claude-haiku-5-5");
+		expect(params.thinking?.type).toBe("adaptive");
+		expect(params.output_config?.effort).toBe("high");
+	});
+
+	// Whole current family, as classified in pi's bundled opencode catalog.
+	test.each([
+		"claude-haiku-5-5",
+		"claude-sonnet-5",
+		"claude-sonnet-5-5",
+		"claude-opus-5",
+		"claude-opus-5-5",
+		"claude-opus-4-6",
+		"claude-sonnet-4-6",
+		"claude-fable-5",
+		"claude-fable-5-1",
+	])("%s sends adaptive thinking", async (id) => {
+		const params = await captureWireParams(id);
+		expect(params.thinking?.type).toBe("adaptive");
+	});
+
+	test.each([
+		"claude-haiku-4-5",
+		"claude-sonnet-4",
+		"claude-sonnet-4-5",
+		"claude-opus-4-5",
+	])("%s keeps the legacy budget form", async (id) => {
+		const params = await captureWireParams(id);
+		expect(params.thinking?.type).toBe("enabled");
+	});
+
+	test.each([
+		["claude-opus-4.7", "adaptive"],
+		["claude-sonnet-4.5", "enabled"],
+	] as const)("%s with dotted version sends %s thinking", async (id, type) => {
+		const params = await captureWireParams(id);
+		expect(params.thinking?.type).toBe(type);
+	});
+
+	test("without the flag the wire carries the exact payload Zen rejects", async () => {
+		const model = modelFromZen("claude-haiku-5-5", {
+			reasoning: true,
+			cost: { input: 1, output: 5 },
+			provider: anthropic,
+		});
+		const legacy = { ...(model as any), compat: undefined };
+		let captured: any;
+		const events = anthropicMessagesApi().streamSimple(legacy, {
+			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
+		} as any, {
+			apiKey: "test-key",
+			reasoning: "high",
+			onPayload: (params: any) => {
+				captured = params;
+				throw new Error("CAPTURE_ABORT");
+			},
+		} as any);
+		for await (const _ of events) { /* drain */ }
+		// the 1.2.7 shape Zen answers with "thinking.type.enabled is not supported"
+		expect(captured.thinking?.type).toBe("enabled");
 	});
 });
 
