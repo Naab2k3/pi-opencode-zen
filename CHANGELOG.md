@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.7
+
+### Fixed
+- Text-protocol tool calls no longer fail validation with empty arguments:
+  the prompt example is a filled command and the rules require every
+  required parameter.
+
+### Changed
+- Free-tier identity UA tracks the current CLI release (2.0.28).
+
 ## 1.2.6
 
 ### Changed

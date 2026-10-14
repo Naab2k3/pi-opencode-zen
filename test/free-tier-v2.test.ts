@@ -4,7 +4,7 @@ import { freeTierHeaders, freeTierSessionId } from "../src/free-tier.ts";
 describe("v2 free-tier identity", () => {
 	test("uses the current CLI UA and client identity with one session header", () => {
 		const headers = freeTierHeaders("ses_abc");
-		expect(headers["User-Agent"]).toBe("opencode/latest/2.0.27/cli");
+		expect(headers["User-Agent"]).toBe("opencode/latest/2.0.28/cli");
 		expect(headers["x-opencode-client"]).toBe("cli");
 		expect(headers["x-opencode-session"]).toBe("ses_abc");
 		expect(headers["x-opencode-session-id"]).toBeUndefined();

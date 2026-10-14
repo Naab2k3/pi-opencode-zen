@@ -39,6 +39,12 @@ describe("v2 gate request shaping", () => {
 		expect(prompt).toContain('"command"');
 	});
 
+	test("shows a filled example and forbids empty arguments", () => {
+		const prompt = buildTextToolProtocol([{ name: "bash", description: "Run commands", parameters: { type: "object", properties: { command: { type: "string" } }, required: ["command"] } }]);
+		expect(prompt).toContain('"command":"ls"');
+		expect(prompt).toContain("never emit empty");
+	});
+
 	test("converts fenced assistant blocks into native Pi tool calls", () => {
 		const message: any = { role: "assistant", provider: "opencode-zen", model: "muse-spark-1.3-contributor-free", content: [{ type: "text", text: '```tool\n{"name":"bash","arguments":{"command":"echo ok"}}\n```' }], stopReason: "stop" };
 		const converted = convertTextToolMessage(message);

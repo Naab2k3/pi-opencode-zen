@@ -128,7 +128,7 @@ export function shapeFreeTierRequest(body: Record<string, any>): Record<string, 
 export function buildTextToolProtocol(tools: Array<{ name: string; description: string; parameters: unknown }>): string {
 	const definitions = tools.map((tool) => `- ${tool.name}: ${tool.description}\n  Parameters: ${JSON.stringify(tool.parameters)}`).join("\n");
 	const fence = String.fromCharCode(96).repeat(3);
-	return `\n\n<pi-zen-tool-protocol>\nNative tool declarations are unavailable on this connection. To call a tool, emit a fenced code block with the info string "tool" containing one JSON object, then stop:\n${fence}tool\n{"name":"<tool name>","arguments":{...}}\n${fence}\nAvailable tools:\n${definitions}\nEmit only tools listed above. Multiple independent calls may use separate blocks. Tool results will arrive as user messages. Never invent tool results.\n</pi-zen-tool-protocol>`;
+	return `\n\n<pi-zen-tool-protocol>\nNative tool declarations are unavailable on this connection. To call a tool, emit a fenced code block with the info string "tool" containing one JSON object, then stop:\n${fence}tool\n{"name":"bash","arguments":{"command":"ls"}}\n${fence}\nAvailable tools:\n${definitions}\nRules: fill "arguments" with every required parameter from the schema above — never emit empty {} or omit required fields, or the call is rejected. Emit only tools listed above. Multiple independent calls may use separate blocks. Tool results will arrive as user messages. Never invent tool results.\n</pi-zen-tool-protocol>`;
 }
 
 export function convertTextToolMessage(message: Record<string, any>): Record<string, any> | undefined {

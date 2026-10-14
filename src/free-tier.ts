@@ -1,5 +1,5 @@
 const B62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const GATE_UA = "opencode/latest/2.0.27/cli";
+const GATE_UA = "opencode/latest/2.0.28/cli";
 
 export function freeTierSessionId(): string {
 	const current = BigInt(Date.now()) * 0x1000n + 1n;
