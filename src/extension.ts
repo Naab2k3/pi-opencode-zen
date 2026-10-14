@@ -8,6 +8,7 @@ import {
 } from "@earendil-works/pi-ai/compat";
 import { INFERENCE_URL, MODELS, modelFromZen, type ZenApi } from "./models.ts";
 import { withRequestRetries } from "./retry.ts";
+import { getActiveOrg, registerZenCommands } from "./commands.ts";
 import { freeTierHeaders, isZeroCostModel } from "./free-tier.ts";
 import { buildTextToolProtocol, convertTextToolMessage, shapeFreeTierRequest } from "./v2-gate.ts";
 import { UA, fetchZenModels, loginZen, refreshZenToken, type ZenCredential } from "./auth.ts";
@@ -52,11 +53,12 @@ export const provider = createProvider<ZenApi>({
 			refresh: refreshZenToken,
 			toAuth: async (credential) => {
 				const { orgID, access: apiKey } = credential as ZenCredential;
+				const activeOrgID = getActiveOrg()?.orgID ?? orgID;
 				return {
 					apiKey,
 					headers: {
 						"User-Agent": UA,
-						...(orgID ? { "x-opencode-org-id": orgID } : {}),
+						...(activeOrgID ? { "x-opencode-org-id": activeOrgID } : {}),
 					},
 				};
 			},
@@ -77,11 +79,17 @@ export const provider = createProvider<ZenApi>({
 	models: MODELS,
 	fetchModels: async (context) => {
 		const credential = context.credential as ZenCredential | undefined;
-		if (!context.allowNetwork || credential?.type !== "oauth" || !credential.orgID) return [];
-		const entries = await fetchZenModels(credential.access, credential.orgID, context.signal);
+		if (!context.allowNetwork || credential?.type !== "oauth") return [];
+		const orgID = getActiveOrg()?.orgID ?? credential.orgID;
+		if (!orgID) return [];
+		const entries = await fetchZenModels(credential.access, orgID, context.signal);
 		return Object.entries(entries).map(([id, meta]) => modelFromZen(id, meta));
 	},
 	filterModels: (models, credential) => {
+		// a switched workspace brings its own server-scoped catalog; the
+		// login-time allowlist belongs to the previous workspace
+		const override = getActiveOrg();
+		if (override && (credential as ZenCredential | undefined)?.orgID !== override.orgID) return [...models];
 		// an empty allowed list means "no usable workspace restrictions" — never
 		// wipe the catalog (that was the "logged in, no models" bug)
 		const allowed = (credential as ZenCredential | undefined)?.allowedModels;
@@ -116,4 +124,5 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerProvider(provider);
+	registerZenCommands(pi);
 }
