@@ -27,7 +27,8 @@ function withFreeTierGate<T extends object>(streams: T): T {
 		return fn(model, context, {
 			...requestOptions,
 			onPayload: async (payload: unknown, m: unknown) => {
-				const next = free && (m as { api?: string })?.api === "openai-responses"
+				const api = (m as { api?: string })?.api;
+				const next = free && (api === "openai-responses" || api === "openai-completions")
 					? shapeFreeTierRequest(payload as Record<string, any>)
 					: payload;
 				return caller ? caller(next, m) : next;

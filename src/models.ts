@@ -97,8 +97,15 @@ function needsAdaptiveThinking(id: string): boolean {
 export function modelFromZen(id: string, meta: ZenModelMeta): Model<ZenApi> {
 	const cost = meta.cost ?? { input: 0, output: 0, cache_read: 0 };
 	const free = meta.cost !== undefined && (cost.input ?? 0) <= 0 && (cost.output ?? 0) <= 0;
-	const route = free ? { api: "openai-responses" as const, baseUrl: INFERENCE_URL } :
-		(resolveZenRoute(id, meta) ?? { api: "openai-completions" as const, baseUrl: INFERENCE_URL });
+	const resolved = resolveZenRoute(id, meta);
+	// The free-tier gateway serves each model on a fixed protocol: Responses for
+	// the gpt/grok/muse families, Chat Completions for the rest. Forcing every
+	// free model onto Responses made the non-muse ones 400 ModelProtocolUnsupported.
+	const route = free
+		? (resolved && resolved.api !== "openai-completions"
+			? resolved
+			: { api: RESPONSES_MODEL.test(id) ? "openai-responses" as const : "openai-completions" as const, baseUrl: INFERENCE_URL })
+		: (resolved ?? { api: "openai-completions" as const, baseUrl: INFERENCE_URL });
 	return {
 		id,
 		name: meta.name ?? id,

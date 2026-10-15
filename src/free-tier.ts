@@ -15,6 +15,9 @@ export function freeTierHeaders(session = freeTierSessionId()): Record<string, s
 		"User-Agent": GATE_UA,
 		"x-opencode-client": "cli",
 		"x-opencode-session": session,
+		// The gate now checks this duplicate header as well, with the same value
+		// (verified against opencode 2.0.29); without it every free model 403s.
+		"x-opencode-session-id": session,
 	};
 }
 

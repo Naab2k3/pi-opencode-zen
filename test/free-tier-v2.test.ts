@@ -7,7 +7,8 @@ describe("v2 free-tier identity", () => {
 		expect(headers["User-Agent"]).toBe("opencode/latest/2.0.28/cli");
 		expect(headers["x-opencode-client"]).toBe("cli");
 		expect(headers["x-opencode-session"]).toBe("ses_abc");
-		expect(headers["x-opencode-session-id"]).toBeUndefined();
+		// The gate checks this duplicate header too; without it every free model 403s.
+		expect(headers["x-opencode-session-id"]).toBe("ses_abc");
 		expect(headers["x-session-affinity"]).toBeUndefined();
 		expect(headers["x-session-id"]).toBeUndefined();
 	});
