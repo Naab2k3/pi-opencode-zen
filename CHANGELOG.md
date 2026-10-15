@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.10
+
+### Fixed
+- Free models were unusable again: every request returned `403 FreeTierError`
+  because the gate now validates a second header, `x-opencode-session-id`, that
+  `freeTierHeaders` did not send (verified against opencode 2.0.29).
+- Free models outside the `gpt` / `grok` / `muse` families (`cat-jam-free`,
+  `deepseek-v4.1-flash-free`, `mimo-v2.6-flash-free`, ...) returned
+  `400 ModelProtocolUnsupported`. `modelFromZen` forced every free model onto
+  OpenAI Responses, but the gateway serves each one on a fixed protocol:
+  Responses for those three families, Chat Completions for the rest.
+- Chat Completions free models rejected pi's own request shape with
+  `403 FreeTierError`. The gate only accepts a title-generator-shaped
+  conversation, so a run of three or more `user` messages (what pi sends for a
+  system-reminder-annotated prompt) and native `assistant.tool_calls` / `tool`
+  turns (what pi sends after a tool run) were both refused. The Completions path
+  now flattens the history into one transcript, like the Responses path did, and
+  the marker prompt text was resynced with the live one.
+
 ## 1.2.9
 
 ### Added

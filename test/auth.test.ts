@@ -240,12 +240,23 @@ describe("allowedModelIDs", () => {
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["big-pickle"]);
 	});
 
-	test("routes free models through OpenAI Responses regardless of catalog provider override", () => {
-		const model = modelFromZen("big-pickle", {
+	test("routes free models by model family instead of forcing Responses", () => {
+		// The gateway serves each free model on a fixed protocol: Responses for the
+		// gpt/grok/muse families, Chat Completions for the rest. Forcing every free
+		// model onto Responses answered `cat-jam-free` with 400 ModelProtocolUnsupported.
+		const openai = { npm: "@ai-sdk/openai", api: "https://opencode.ai/inference/openai/v1" };
+		expect(modelFromZen("muse-spark-1.3-contributor-free", { cost: { input: 0, output: 0 }, provider: openai }).api).toBe("openai-responses");
+		expect(modelFromZen("gpt-5.1-mini-free", { cost: { input: 0, output: 0 }, provider: openai }).api).toBe("openai-responses");
+		expect(modelFromZen("cat-jam-free", { cost: { input: 0, output: 0 }, provider: openai }).api).toBe("openai-completions");
+		expect(modelFromZen("deepseek-v4.1-flash-free", { cost: { input: 0, output: 0 }, provider: openai }).api).toBe("openai-completions");
+	});
+
+	test("keeps a non-OpenAI catalog override for free models", () => {
+		const model = modelFromZen("ling-3.0-flash-fin-free", {
 			cost: { input: 0, output: 0 },
-			provider: { npm: "@ai-sdk/openai-compatible", api: "https://opencode.ai/inference/openai/v1" },
+			provider: { npm: "@ai-sdk/anthropic", api: "https://opencode.ai/inference/anthropic/v1" },
 		});
-		expect(model.api).toBe("openai-responses");
+		expect(model.api).toBe("anthropic-messages");
 	});
 
 	test("empty config returns no models", async () => {
