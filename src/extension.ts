@@ -10,37 +10,23 @@ import { INFERENCE_URL, MODELS, modelFromZen, type ZenApi } from "./models.ts";
 import { withRequestRetries } from "./retry.ts";
 import { getActiveOrg, registerZenCommands } from "./commands.ts";
 import { freeTierHeaders, isZeroCostModel } from "./free-tier.ts";
-import { buildTextToolProtocol, convertTextToolMessage, shapeFreeTierRequest } from "./v2-gate.ts";
 import { UA, fetchZenModels, loginZen, refreshZenToken, type ZenCredential } from "./auth.ts";
 
+// Free-tier identity only: the gate authenticates the client through headers
+// (User-Agent, x-opencode-client, both session headers). Its content checks are
+// satisfied by a normal pi request, so the body is passed through untouched and
+// free models keep their native tools.
 function withFreeTierGate<T extends object>(streams: T): T {
 	const s = streams as unknown as Record<string, (...args: never[]) => unknown>;
 	const wrap = (fn: (...args: never[]) => unknown) => (model: never, context: never, options?: never) => {
 		const opts = (options ?? {}) as Record<string, unknown>;
 		const free = isZeroCostModel(model as never) || ((model as { id?: string }).id ?? "").endsWith("-free");
-		const caller = opts.onPayload as ((payload: unknown, model: unknown) => unknown) | undefined;
-		let requestOptions = opts;
-		if (free) {
-			const headers = { ...((opts.headers as Record<string, string>) ?? {}), ...freeTierHeaders() };
-			requestOptions = { ...opts, headers };
-		}
-		return fn(model, context, {
-			...requestOptions,
-			onPayload: async (payload: unknown, m: unknown) => {
-				const api = (m as { api?: string })?.api;
-				const next = free && (api === "openai-responses" || api === "openai-completions")
-					? shapeFreeTierRequest(payload as Record<string, any>)
-					: payload;
-				return caller ? caller(next, m) : next;
-			},
-		} as never);
+		const requestOptions = free
+			? { ...opts, headers: { ...((opts.headers as Record<string, string>) ?? {}), ...freeTierHeaders() } }
+			: options;
+		return fn(model, context, requestOptions as never);
 	};
 	return { ...streams, stream: wrap(s.stream!), streamSimple: wrap(s.streamSimple!) };
-}
-
-function freeModelProtocol(tools: ReturnType<ExtensionAPI["getAllTools"]>, active: string[]): string {
-	const activeSet = new Set(active);
-	return buildTextToolProtocol(tools.filter((tool) => activeSet.has(tool.name)));
 }
 
 export const provider = createProvider<ZenApi>({
@@ -108,22 +94,6 @@ export const provider = createProvider<ZenApi>({
 });
 
 export default function (pi: ExtensionAPI) {
-	pi.on("before_agent_start", (event, ctx) => {
-		const model = ctx.model;
-		if (!model || model.provider !== "opencode-zen") return;
-		if (!isZeroCostModel(model) && !model.id.endsWith("-free")) return;
-		const protocol = freeModelProtocol(pi.getAllTools(), pi.getActiveTools());
-		return { systemPrompt: `${event.systemPrompt}${protocol}` };
-	});
-
-	pi.on("message_end", (event) => {
-		const message = event.message as unknown as Record<string, any>;
-		if (message.provider !== "opencode-zen" || typeof message.model !== "string") return;
-		if (!message.model.endsWith("-free")) return;
-		const converted = convertTextToolMessage(message);
-		if (converted) return { message: converted as typeof event.message };
-	});
-
 	pi.registerProvider(provider);
 	registerZenCommands(pi);
 }

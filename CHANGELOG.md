@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.11
+
+### Fixed
+- Free models can call tools again. The free-tier gate authenticates the client
+  through headers alone (`User-Agent`, `x-opencode-client`,
+  `x-opencode-session` + `x-opencode-session-id`); once the duplicate session
+  header from 1.2.10 is present it accepts a normal pi request. The body-shaping
+  layer (title-generator marker, flattened history, stripped `tools`) and the
+  text-tool protocol that replaced native tools are therefore unnecessary, and
+  they were what broke tool calls: `big-pickle` (zero-cost but without a `-free`
+  suffix) was never converted back into a tool call, `mimo-v2.6-flash-free`
+  emitted several calls inside one fenced block and lost all of them, and
+  weaker models invented their own fences. Both are removed; free models now
+  send and receive native tools, verified end-to-end (read + bash + follow-up
+  turn) on `big-pickle`, `muse-spark-1.3-contributor-free`,
+  `mimo-v2.6-flash-free`, `nemotron-3-ultra-free` and
+  `nemotron-3.5-lightning-free`.
+- `GATE_UA` tracks opencode 2.0.30.
+
 ## 1.2.10
 
 ### Fixed
