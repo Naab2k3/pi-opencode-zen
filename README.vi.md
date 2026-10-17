@@ -43,12 +43,14 @@ Ví dụ thật từ một workspace (list của bạn tùy theo workspace):
 | `glm-5.3-flash` | $0.15 | $0.50 | $0.03 | text, image |
 | `deepseek-v4.1-flash` | $0.30 | $1.20 | $0.006 | text, image |
 | `big-pickle` | $0 | $0 | $0 | text |
-| `muse-spark-1.3-contributor-free` | $0 | $0 | $0 | text, image |
+| `mimo-v2.6-flash-free` | $0 | $0 | $0 | text |
 
 Giá/1 triệu token, tính vào workspace đã chọn. Các dòng zero-cost là
-free tier của Zen: extension thỏa mãn content gate của gateway (marker
-prompt + shape lịch sử, xem `src/v2-gate.ts`) và chạy tool calling qua
-text protocol trên các model đó.
+free tier của Zen: extension gửi đúng identity headers mà gateway yêu cầu
+(xem `src/free-tier.ts`) và request đi qua nguyên bản, nên tool calling
+chạy native trên các model đó. Route cũng được re-derive từ mã mỗi lần
+đọc, nên cache danh sách model cũ (models-store.json) không ghim sai
+protocol được.
 
 ## Bảo mật
 
@@ -64,7 +66,7 @@ text protocol trên các model đó.
 - `src/retry.ts` — retry có giới hạn cho lỗi transient và option bị từ chối
 - `src/commands.ts` — lệnh `/opencode-zen` (status, switch-org)
 - `src/free-tier.ts` — identity headers cho free-tier
-- `src/v2-gate.ts` — content gate free-tier: marker prompt, shape lịch sử, text-protocol tools
+- `test/` — bộ test bun với fetch giả (`bun test`)
 - `test/` — test suite bun với fetch mock (`bun test`)
 
 ## License

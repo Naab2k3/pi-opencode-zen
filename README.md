@@ -56,12 +56,12 @@ Live example from a real workspace (your list depends on your workspace):
 | `glm-5.3-flash` | $0.15 | $0.50 | $0.03 | text, image |
 | `deepseek-v4.1-flash` | $0.30 | $1.20 | $0.006 | text, image |
 | `big-pickle` | $0 | $0 | $0 | text |
-| `muse-spark-1.3-contributor-free` | $0 | $0 | $0 | text, image |
+| `mimo-v2.6-flash-free` | $0 | $0 | $0 | text |
 
 Prices per million tokens, billed to the selected workspace. Zero-cost rows
-are the Zen free tier: the extension satisfies the gateway's content gate
-(marker prompt + history shape, `src/v2-gate.ts`) and runs tool calling as a
-text protocol on those models.
+are the Zen free tier: the extension sends the identity headers the gateway
+expects (`src/free-tier.ts`) and the requests pass through untouched, so
+tool calling works natively on those models.
 
 ## Security
 
@@ -79,7 +79,6 @@ text protocol on those models.
 - `src/retry.ts` — bounded retries for transient failures and rejected options
 - `src/commands.ts` — `/opencode-zen` command (status, switch-org)
 - `src/free-tier.ts` — free-tier identity headers per request
-- `src/v2-gate.ts` — free-tier content gate: marker prompt, history shape, text-protocol tools
 - `test/` — bun test suite with mocked fetch (`bun test`)
 
 ## License
