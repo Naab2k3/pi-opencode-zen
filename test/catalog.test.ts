@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/compat";
 import { allowedModelIDs, fetchZenModels, loginZen } from "../src/auth.ts";
 import { provider } from "../src/extension.ts";
-import { INFERENCE_URL, MODELS, modelFromZen, resolveZenRoute } from "../src/models.ts";
+import { INFERENCE_URL, MODELS, healZenRoute, modelFromZen, resolveZenRoute } from "../src/models.ts";
 
 // Regression suite for "logged in but no models":
 // - empty allowedModels must never wipe the catalog
@@ -392,6 +392,80 @@ describe("catalog resilience (parity #6, area: catalog)", () => {
 			},
 		}));
 		expect(await allowedModelIDs("tok", "wrk_1")).toEqual(["good-model"]);
+	});
+});
+
+describe("stale stored catalogs cannot outlive the code that wrote them", () => {
+	// pi restores models-store.json before the network and lets a same-id stored
+	// entry override the baseline — `api` included — so an old snapshot kept
+	// pinning free models to the protocol that version chose (the 400
+	// ModelProtocolUnsupported reports). Routing is re-derived on every read.
+	const stale = (id: string, api: string) =>
+		({
+			id,
+			name: id,
+			provider: "opencode-zen",
+			api,
+			baseUrl: INFERENCE_URL,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		}) as any;
+
+	test("a completions-family free model pinned to Responses is healed on read", () => {
+		expect(healZenRoute(stale("nemotron-3-ultra-free", "openai-responses"))).toMatchObject({
+			api: "openai-completions",
+			baseUrl: INFERENCE_URL,
+		});
+	});
+
+	test("crossed routes in both directions are healed", () => {
+		expect(healZenRoute(stale("mimo-v2.6-flash-free", "openai-responses")).api).toBe("openai-completions");
+		expect(healZenRoute(stale("gpt-5.1", "openai-completions")).api).toBe("openai-responses");
+	});
+
+	test("a zero-cost model without the -free suffix is healed too", () => {
+		expect(healZenRoute(stale("big-pickle", "openai-responses")).api).toBe("openai-completions");
+	});
+
+	test("paid models and console-only routes are left alone", () => {
+		const paid = { ...stale("glm-5.3-flash", "openai-completions"), cost: { input: 0.15, output: 0.5 } };
+		const claude = { ...stale("claude-sonnet-5-free", "anthropic-messages"), baseUrl: "https://opencode.ai/inference/anthropic" };
+		expect(healZenRoute(paid)).toBe(paid);
+		expect(healZenRoute(claude)).toBe(claude);
+	});
+
+	test("the restored snapshot is healed where requests read it", async () => {
+		mockFetch();
+		const published: any[] = [];
+		const ctx = {
+			allowNetwork: false,
+			credential: { type: "oauth", refresh: "r", access: "a", expires: 0, orgID: "wrk_1" },
+			signal: new AbortController().signal,
+			stored: {
+				models: [
+					stale("nemotron-3-ultra-free", "openai-responses"),
+					stale("muse-spark-1.3-contributor-free", "openai-responses"),
+				],
+			},
+			publish: async (p: any) => {
+				p.update?.();
+				published.push(p);
+				return true;
+			},
+		} as any;
+		await provider.refreshModels?.(ctx);
+		const served = new Map(provider.getModels().map((m: any) => [m.id, m.api]));
+		expect(served.get("nemotron-3-ultra-free")).toBe("openai-completions");
+		expect(served.get("muse-spark-1.3-contributor-free")).toBe("openai-responses");
+	});
+
+	test("healed models still honour the workspace allowlist", () => {
+		// the caller feeds provider.getModels() (already-healed models + stale
+		// overrides merged in by pi-ai) into filterModels for the picker
+		const visible = provider.filterModels?.(
+			[stale("mimo-v2.6-flash-free", "openai-responses"), stale("nemotron-3-ultra-free", "openai-responses")],
+			oauth(["nemotron-3-ultra-free"]),
+		);
+		expect(visible?.map((m: any) => m.id)).toEqual(["nemotron-3-ultra-free"]);
 	});
 });
 

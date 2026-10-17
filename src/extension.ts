@@ -6,7 +6,7 @@ import {
 	openAICompletionsApi,
 	openAIResponsesApi,
 } from "@earendil-works/pi-ai/compat";
-import { INFERENCE_URL, MODELS, modelFromZen, type ZenApi } from "./models.ts";
+import { INFERENCE_URL, MODELS, healZenRoute, modelFromZen, type ZenApi } from "./models.ts";
 import { withRequestRetries } from "./retry.ts";
 import { getActiveOrg, registerZenCommands } from "./commands.ts";
 import { freeTierHeaders, isZeroCostModel } from "./free-tier.ts";
@@ -29,7 +29,7 @@ function withFreeTierGate<T extends object>(streams: T): T {
 	return { ...streams, stream: wrap(s.stream!), streamSimple: wrap(s.streamSimple!) };
 }
 
-export const provider = createProvider<ZenApi>({
+const zen = createProvider<ZenApi>({
 	id: "opencode-zen",
 	name: "OpenCode Zen",
 	baseUrl: INFERENCE_URL,
@@ -92,6 +92,20 @@ export const provider = createProvider<ZenApi>({
 		"google-generative-ai": withRequestRetries(googleGenerativeAIApi()),
 	},
 });
+
+// pi restores the last snapshot it fetched (models-store.json) before touching
+// the network, merges it over the baseline — a same-id stored entry wins,
+// `api` included — and serves the result through getModels()/getAllModels().
+// That is the accessor every request path reads; filterModels only shapes the
+// picker, so healing there is not enough. The snapshot is rewritten by a
+// networked refresh only (interactive start, /model search, switch-org); the
+// refresh pi runs after a login is offline, so a route an older version chose
+// survives the upgrade. Re-derive it on every read instead.
+export const provider = {
+	...zen,
+	getModels: () => zen.getModels().map(healZenRoute),
+	getAllModels: () => (zen.getAllModels?.() ?? zen.getModels()).map(healZenRoute),
+};
 
 export default function (pi: ExtensionAPI) {
 	pi.registerProvider(provider);
