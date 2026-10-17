@@ -17,7 +17,16 @@
   turn) on `big-pickle`, `muse-spark-1.3-contributor-free`,
   `mimo-v2.6-flash-free`, `nemotron-3-ultra-free` and
   `nemotron-3.5-lightning-free`.
-- `GATE_UA` tracks opencode 2.0.30.
+- `GATE_UA` tracks opencode 2.0.32. The gate also re-checked its content rules:
+  free requests now need `stream: true` and at least one tool definition, and
+  the versionless `opencode/cli` user agent is rejected; pi's own request
+  satisfies all of it, so the body still passes through untouched.
+- Cached catalogs cannot pin a stale protocol any more: `healZenRoute`
+  re-derives the free-tier route from the model id on every read, in
+  `getModels()`/`getAllModels()` — the accessors every request path uses.
+  A `models-store.json` written by an older version (which survives upgrades
+  because pi's post-login refresh is offline) no longer causes
+  `400 ModelProtocolUnsupported`.
 
 ## 1.2.10
 
