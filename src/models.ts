@@ -1,4 +1,5 @@
 import type { Model } from "@earendil-works/pi-ai";
+import { isZeroCostModel } from "./free-tier.ts";
 
 export const INFERENCE_URL = "https://opencode.ai/inference/openai/v1";
 
@@ -94,17 +95,22 @@ function needsAdaptiveThinking(id: string): boolean {
 	return major >= 5 || (major === 4 && minor >= 6);
 }
 
+// The free-tier gateway serves each model on a fixed protocol: Responses for the
+// gpt/grok/muse families, Chat Completions for the rest. Forcing every free
+// model onto Responses made the non-muse ones 400 ModelProtocolUnsupported.
+function freeRoute(id: string): ZenRoute {
+	return {
+		api: RESPONSES_MODEL.test(id) ? "openai-responses" : "openai-completions",
+		baseUrl: INFERENCE_URL,
+	};
+}
+
 export function modelFromZen(id: string, meta: ZenModelMeta): Model<ZenApi> {
 	const cost = meta.cost ?? { input: 0, output: 0, cache_read: 0 };
 	const free = meta.cost !== undefined && (cost.input ?? 0) <= 0 && (cost.output ?? 0) <= 0;
 	const resolved = resolveZenRoute(id, meta);
-	// The free-tier gateway serves each model on a fixed protocol: Responses for
-	// the gpt/grok/muse families, Chat Completions for the rest. Forcing every
-	// free model onto Responses made the non-muse ones 400 ModelProtocolUnsupported.
 	const route = free
-		? (resolved && resolved.api !== "openai-completions"
-			? resolved
-			: { api: RESPONSES_MODEL.test(id) ? "openai-responses" as const : "openai-completions" as const, baseUrl: INFERENCE_URL })
+		? (resolved && resolved.api !== "openai-completions" ? resolved : freeRoute(id))
 		: (resolved ?? { api: "openai-completions" as const, baseUrl: INFERENCE_URL });
 	return {
 		id,
@@ -127,6 +133,25 @@ export function modelFromZen(id: string, meta: ZenModelMeta): Model<ZenApi> {
 			? { forceAdaptiveThinking: true }
 			: undefined,
 	};
+}
+
+// pi restores the last fetched catalog (models-store.json) before touching the
+// network, and a same-id stored entry overrides the extension's baseline model —
+// `api` included, which is what the request routing depends on. The store is
+// only rewritten by a networked refresh (interactive start, /model search,
+// switch-org); the refresh pi runs after a login is offline, so a snapshot
+// written by an older version survives an upgrade and pins free models to the
+// protocol that version decided. Re-derive the free-tier route from the id on
+// every read so a stale entry cannot outlive the code that wrote it.
+export function healZenRoute<M extends { id: string; api?: string; baseUrl?: string; cost?: { input?: number; output?: number } }>(
+	model: M,
+): M {
+	// anthropic/google routes only ever come from the console; never re-derive those
+	if (model.api === "anthropic-messages" || model.api === "google-generative-ai") return model;
+	if (!model.id.endsWith("-free") && !isZeroCostModel(model)) return model;
+	const { api, baseUrl } = freeRoute(model.id);
+	if (api === model.api && baseUrl === model.baseUrl) return model;
+	return { ...model, api, baseUrl };
 }
 
 // Baseline catalog for offline startup; fetchModels replaces it with the live workspace list.
